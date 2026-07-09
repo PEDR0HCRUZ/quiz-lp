@@ -131,6 +131,11 @@ const waLink = (num, msg) =>
 const initials = (n) =>
   (n || "").split(" ").filter(Boolean).slice(0, 2).map((w) => w[0]).join("").toUpperCase();
 const firstName = (n) => (n || "").trim().split(" ")[0] || "";
+// nome é exibido publicamente no site — força "Primeira Maiúscula" em cada
+// palavra independente de como a pessoa digitou (tudo minúsculo, tudo
+// maiúsculo etc.)
+const titleCase = (n) =>
+  (n || "").trim().split(/\s+/).map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(" ");
 // máscara de celular BR: "51999998888" -> "51 99999-9888"
 const formatPhoneBR = (raw) => {
   const d = (raw || "").replace(/\D/g, "").slice(0, 11);
@@ -389,6 +394,8 @@ export default function App() {
   // (auth por magic link removida por enquanto — sem verificação de e-mail)
   const startQuiz = async () => {
     if (!lead.name.trim() || !/\S+@\S+\.\S+/.test(lead.email)) return;
+    const name = titleCase(lead.name);
+    setLead((l) => ({ ...l, name }));
     // marca ANTES de chamar signInAnonymously — esse próprio método dispara
     // o listener onAuthStateChange internamente, que pode rodar hydrate()
     // numa corrida antes da nossa continuação abaixo, duplicando a 1ª mensagem.
@@ -396,17 +403,17 @@ export default function App() {
     setSendingLink(true);
     setAuthError("");
     const { error } = await supabase.auth.signInAnonymously({
-      options: { data: { name: lead.name, email: lead.email } },
+      options: { data: { name, email: lead.email } },
     });
     setSendingLink(false);
     if (error) { flowStartedRef.current = false; setAuthError(error.message); return; }
     setPhase("chat");
-    botSay(FLOW[0].bot.replace("{first}", firstName(lead.name)));
+    botSay(FLOW[0].bot.replace("{first}", firstName(name)));
     // manda o lead pro Notion em segundo plano — não trava o quiz se falhar
     fetch("/api/lead", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: lead.name, email: lead.email }),
+      body: JSON.stringify({ name, email: lead.email }),
     }).catch(() => {});
   };
 
@@ -423,7 +430,7 @@ export default function App() {
     const hydrate = async (session) => {
       if (flowStartedRef.current) return; // evita rodar de novo (StrictMode / onAuthStateChange + getSession em paralelo)
       flowStartedRef.current = true;
-      const name = session.user.user_metadata?.name || "";
+      const name = titleCase(session.user.user_metadata?.name || "");
       const email = session.user.user_metadata?.email || session.user.email || "";
       setLead({ name, email });
       const { data: row } = await supabase
@@ -433,7 +440,15 @@ export default function App() {
         .maybeSingle();
       if (row) {
         setAnswers(row.answers || {});
-        setSite(row.data || null);
+        // sites gerados antes da normalização do nome (ex: "pedro" salvo em
+        // vez de "Pedro") se corrigem sozinhos no próximo carregamento —
+        // sem isso, o nome errado fica congelado pra sempre na página pública.
+        let siteData = row.data;
+        if (siteData?.name && siteData.name !== titleCase(siteData.name)) {
+          siteData = { ...siteData, name: titleCase(siteData.name) };
+          saveSite(row.status, siteData, row.answers || {});
+        }
+        setSite(siteData || null);
         setSiteSlug(row.slug);
         setSiteStatus(row.status);
         if (row.status === "published") setPublishedUrl(`${window.location.origin}/${row.slug}`);
