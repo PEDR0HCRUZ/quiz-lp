@@ -130,6 +130,13 @@ const uid = () => ++_mid;
 const CARDS_STEP = FLOW.find((f) => f.type === "cards");
 const waLink = (num, msg) =>
   `https://wa.me/${(num || "").replace(/\D/g, "")}?text=${encodeURIComponent(msg || "")}`;
+// aceita "@fulana", "fulana" ou um link já pronto e sempre devolve uma URL válida do perfil
+const igLink = (handle) => {
+  const h = (handle || "").trim();
+  if (!h) return "";
+  if (/^https?:\/\//i.test(h)) return h;
+  return `https://instagram.com/${h.replace(/^@/, "")}`;
+};
 const initials = (n) =>
   (n || "").split(" ").filter(Boolean).slice(0, 2).map((w) => w[0]).join("").toUpperCase();
 const firstName = (n) => (n || "").trim().split(" ")[0] || "";
@@ -179,7 +186,12 @@ function SitePreview({ d }) {
           {d.logo
             ? <img src={d.logo} alt={d.name} style={{ height: 28, maxWidth: 160, objectFit: "contain" }} />
             : <span style={{ fontFamily: "Fraunces, serif", fontWeight: 600, fontSize: 16 }}>{d.name}</span>}
-          <nav className="site-nav" style={{ display: "flex", gap: 16, fontSize: 12, color: C.sub }}><span>Especialidades</span><span>Método</span><span>Sobre</span><span>Dúvidas</span></nav>
+          <nav className="site-nav" style={{ display: "flex", gap: 16, fontSize: 12, color: C.sub }}>
+            <a href="#especialidades" style={{ color: "inherit", textDecoration: "none" }}>Especialidades</a>
+            <a href="#metodo" style={{ color: "inherit", textDecoration: "none" }}>Método</a>
+            <a href="#sobre" style={{ color: "inherit", textDecoration: "none" }}>Sobre</a>
+            <a href="#duvidas" style={{ color: "inherit", textDecoration: "none" }}>Dúvidas</a>
+          </nav>
           <Btn primary><MessageCircle size={14} /> Agendar</Btn>
         </div>
       </div>
@@ -200,7 +212,7 @@ function SitePreview({ d }) {
         </div>
       </div>
       {/* especialidades */}
-      <div style={{ background: C.panel }}>
+      <div id="especialidades" style={{ background: C.panel, scrollMarginTop: 64 }}>
         <div style={wrap({ padding: `40px ${CONTAINER_PAD}px` })}>
           <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".12em", textTransform: "uppercase", color: accent, margin: 0 }}>Foco em resultados</p>
           <h2 style={{ fontFamily: "Fraunces, serif", fontSize: 26, fontWeight: 600, margin: "8px 0 22px" }}>Especialidades clínicas</h2>
@@ -215,8 +227,25 @@ function SitePreview({ d }) {
           </div>
         </div>
       </div>
+      {/* diferenciais */}
+      <div className="sobre-grid" style={wrap({ padding: `40px ${CONTAINER_PAD}px`, gap: 26, alignItems: "center" })}>
+        <div style={{ aspectRatio: "1/1", borderRadius: 16, overflow: "hidden", background: `linear-gradient(160deg, ${accentSoft}, #E8E4DA)` }} />
+        <div>
+          <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".12em", textTransform: "uppercase", color: accent, margin: 0 }}>Diferenciais</p>
+          <h2 style={{ fontFamily: "Fraunces, serif", fontSize: 24, fontWeight: 600, margin: "8px 0 16px" }}>Por que esse atendimento?</h2>
+          {d.benefits.map((b, i) => (
+            <div key={i} style={{ display: "flex", gap: 10, marginBottom: 12 }}>
+              <span style={{ marginTop: 2, flexShrink: 0, width: 20, height: 20, borderRadius: 99, background: accent, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <Check size={12} color="#fff" />
+              </span>
+              <p style={{ margin: 0, fontSize: 13.5 }}><b>{b.t}</b> — <span style={{ color: C.sub }}>{b.d}</span></p>
+            </div>
+          ))}
+          {d.aviso && <p style={{ marginTop: 14, fontSize: 12, color: C.sub, fontStyle: "italic" }}>{d.aviso}</p>}
+        </div>
+      </div>
       {/* metodologia */}
-      <div style={{ background: C.dark, color: "#EDEBE3" }}>
+      <div id="metodo" style={{ background: C.dark, color: "#EDEBE3", scrollMarginTop: 64 }}>
         <div style={wrap({ padding: `40px ${CONTAINER_PAD}px` })}>
           <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".12em", textTransform: "uppercase", color: C.acid, margin: 0 }}>Abordagem</p>
           <h2 style={{ fontFamily: "Fraunces, serif", fontSize: 26, fontWeight: 600, margin: "8px 0 16px" }}>{d.methodTitle}</h2>
@@ -226,7 +255,7 @@ function SitePreview({ d }) {
         </div>
       </div>
       {/* sobre */}
-      <div className="sobre-grid" style={wrap({ padding: `40px ${CONTAINER_PAD}px`, gap: 26, alignItems: "center" })}>
+      <div id="sobre" className="sobre-grid" style={wrap({ padding: `40px ${CONTAINER_PAD}px`, gap: 26, alignItems: "center", scrollMarginTop: 64 })}>
         <div>
           <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".12em", textTransform: "uppercase", color: accent, margin: 0 }}>Quem sou eu</p>
           <h2 style={{ fontFamily: "Fraunces, serif", fontSize: 24, fontWeight: 600, margin: "8px 0 14px" }}>Uma escuta clínica e humana.</h2>
@@ -240,7 +269,7 @@ function SitePreview({ d }) {
         </div>
       </div>
       {/* faq */}
-      <div style={{ background: C.panel }}>
+      <div id="duvidas" style={{ background: C.panel, scrollMarginTop: 64 }}>
         <div style={wrap({ padding: `40px ${CONTAINER_PAD}px` })}>
           <h2 style={{ fontFamily: "Fraunces, serif", fontSize: 24, fontWeight: 600, margin: "0 0 18px" }}>Perguntas frequentes</h2>
           {d.faq.map((f, i) => {
@@ -286,8 +315,12 @@ function SitePreview({ d }) {
             <div style={{ fontSize: 12, color: C.sub, marginTop: 4 }}>{d.title} · {d.modalidade}</div>
           </div>
           <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-            <span style={{ display: "flex", gap: 6, alignItems: "center", fontSize: 12, color: C.sub }}><Instagram size={14} />{d.instagram}</span>
-            <span style={{ display: "flex", gap: 6, alignItems: "center", fontSize: 12, color: C.sub }}><Mail size={14} />{d.email}</span>
+            {d.instagram && (
+              <a href={igLink(d.instagram)} target="_blank" rel="noreferrer" style={{ display: "flex", gap: 6, alignItems: "center", fontSize: 12, color: C.sub, textDecoration: "none" }}><Instagram size={14} />{d.instagram}</a>
+            )}
+            {d.email && (
+              <a href={`mailto:${d.email}`} style={{ display: "flex", gap: 6, alignItems: "center", fontSize: 12, color: C.sub, textDecoration: "none" }}><Mail size={14} />{d.email}</a>
+            )}
           </div>
         </div>
       </div>
@@ -823,7 +856,7 @@ export default function App() {
   if (phase === "public") {
     const fontStyle = (
       <style>{`@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600&family=Inter:wght@400;500;600;700&display=swap');
-        *{box-sizing:border-box;} body{margin:0;} details summary::-webkit-details-marker{display:none;}
+        *{box-sizing:border-box;} html{scroll-behavior:smooth;} body{margin:0;} details summary::-webkit-details-marker{display:none;}
         .hero-grid { display:grid; grid-template-columns: 1.1fr .9fr; }
         .sobre-grid { display:grid; grid-template-columns: 1fr 1fr; }
         .spec-grid { display:grid; grid-template-columns: 1fr 1fr; }
@@ -1198,7 +1231,7 @@ export default function App() {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600&family=Inter:wght@400;500;600;700&display=swap');
         *{box-sizing:border-box;} body{margin:0;} details summary::-webkit-details-marker{display:none;}
-        .prev::-webkit-scrollbar{width:8px;} .prev::-webkit-scrollbar-thumb{background:#D8D3C6;border-radius:9px;}
+        .prev{scroll-behavior:smooth;} .prev::-webkit-scrollbar{width:8px;} .prev::-webkit-scrollbar-thumb{background:#D8D3C6;border-radius:9px;}
 
         /* --- grids do preview do site: colapsam em telas estreitas --- */
         .hero-grid { display:grid; grid-template-columns: 1.1fr .9fr; }

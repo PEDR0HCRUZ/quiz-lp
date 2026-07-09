@@ -54,6 +54,12 @@ const waLink = (num, msg) =>
 const initials = (n) =>
   (n || "").split(" ").filter(Boolean).slice(0, 2).map((w) => w[0]).join("").toUpperCase();
 const firstName = (n) => (n || "").trim().split(" ")[0] || "";
+const igLink = (handle) => {
+  const h = (handle || "").trim();
+  if (!h) return "";
+  if (/^https?:\/\//i.test(h)) return h;
+  return `https://instagram.com/${h.replace(/^@/, "")}`;
+};
 
 const wrap = (extra) => ({ maxWidth: CONTAINER_MAX, margin: "0 auto", padding: `0 ${CONTAINER_PAD}px`, ...extra });
 
@@ -98,7 +104,10 @@ export function SitePreviewEditorial({ d }) {
             ? <img src={d.logo} alt={d.name} style={{ height: 26, maxWidth: 160, objectFit: "contain" }} />
             : <span className="ed-serif" style={{ fontStyle: "italic", fontWeight: 400, fontSize: 20 }}>{d.name}</span>}
           <nav className="ed-nav" style={{ display: "flex", gap: 22, fontSize: 12.5, color: T.sub, letterSpacing: ".02em" }}>
-            <span>Especialidades</span><span>Método</span><span>Sobre</span><span>Dúvidas</span>
+            <a href="#especialidades" style={{ color: "inherit", textDecoration: "none" }}>Especialidades</a>
+            <a href="#metodo" style={{ color: "inherit", textDecoration: "none" }}>Método</a>
+            <a href="#sobre" style={{ color: "inherit", textDecoration: "none" }}>Sobre</a>
+            <a href="#duvidas" style={{ color: "inherit", textDecoration: "none" }}>Dúvidas</a>
           </nav>
           <Btn primary><MessageCircle size={14} /> Agendar</Btn>
         </div>
@@ -130,7 +139,7 @@ export function SitePreviewEditorial({ d }) {
       </div>
 
       {/* especialidades */}
-      <div style={{ background: T.panel, borderTop: `1px solid ${T.line}`, borderBottom: `1px solid ${T.line}` }}>
+      <div id="especialidades" style={{ background: T.panel, borderTop: `1px solid ${T.line}`, borderBottom: `1px solid ${T.line}`, scrollMarginTop: 70 }}>
         <div style={wrap({ padding: `56px ${CONTAINER_PAD}px` })}>
           <Ornament color={accent} />
           <h2 className="ed-serif" style={{ fontStyle: "italic", fontWeight: 400, fontSize: 32, margin: "0 0 28px" }}>Especialidades clínicas</h2>
@@ -170,7 +179,7 @@ export function SitePreviewEditorial({ d }) {
       </div>
 
       {/* metodologia */}
-      <div style={{ background: T.ink, color: "#EFE7DA" }}>
+      <div id="metodo" style={{ background: T.ink, color: "#EFE7DA", scrollMarginTop: 70 }}>
         <div style={wrap({ padding: `60px ${CONTAINER_PAD}px`, maxWidth: READ_MAX + CONTAINER_PAD * 2 })}>
           <Ornament color="#D98A66" />
           <h2 className="ed-serif" style={{ fontStyle: "italic", fontWeight: 400, fontSize: 30, margin: "0 0 18px", color: "#FBF5EA" }}>{d.methodTitle}</h2>
@@ -181,7 +190,7 @@ export function SitePreviewEditorial({ d }) {
       </div>
 
       {/* sobre */}
-      <div className="ed-sobre-grid" style={wrap({ padding: `60px ${CONTAINER_PAD}px` })}>
+      <div id="sobre" className="ed-sobre-grid" style={wrap({ padding: `60px ${CONTAINER_PAD}px`, scrollMarginTop: 70 })}>
         <div style={{ position: "relative" }}>
           <div style={{ position: "absolute", inset: 0, transform: "translate(12px, -12px)", background: T.sand, borderRadius: 2 }} />
           <div style={{ position: "relative", aspectRatio: "4/5", borderRadius: 2, overflow: "hidden", border: `1px solid ${T.ink}`, background: T.panel, display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -199,7 +208,7 @@ export function SitePreviewEditorial({ d }) {
       </div>
 
       {/* faq */}
-      <div style={{ background: T.panel, borderTop: `1px solid ${T.line}` }}>
+      <div id="duvidas" style={{ background: T.panel, borderTop: `1px solid ${T.line}`, scrollMarginTop: 70 }}>
         <div style={wrap({ padding: `56px ${CONTAINER_PAD}px`, maxWidth: READ_MAX + CONTAINER_PAD * 2 })}>
           <Ornament color={accent} />
           <h2 className="ed-serif" style={{ fontStyle: "italic", fontWeight: 400, fontSize: 28, margin: "0 0 20px" }}>Perguntas frequentes</h2>
@@ -251,8 +260,12 @@ export function SitePreviewEditorial({ d }) {
             <div style={{ fontSize: 12, color: T.sub, marginTop: 4 }}>{d.title} · {d.modalidade}</div>
           </div>
           <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
-            <span style={{ display: "flex", gap: 6, alignItems: "center", fontSize: 12, color: T.sub }}><Instagram size={14} />{d.instagram}</span>
-            <span style={{ display: "flex", gap: 6, alignItems: "center", fontSize: 12, color: T.sub }}><Mail size={14} />{d.email}</span>
+            {d.instagram && (
+              <a href={igLink(d.instagram)} target="_blank" rel="noreferrer" style={{ display: "flex", gap: 6, alignItems: "center", fontSize: 12, color: T.sub, textDecoration: "none" }}><Instagram size={14} />{d.instagram}</a>
+            )}
+            {d.email && (
+              <a href={`mailto:${d.email}`} style={{ display: "flex", gap: 6, alignItems: "center", fontSize: 12, color: T.sub, textDecoration: "none" }}><Mail size={14} />{d.email}</a>
+            )}
           </div>
         </div>
       </div>
