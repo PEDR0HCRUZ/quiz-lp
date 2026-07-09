@@ -161,7 +161,9 @@ export function SitePreviewEditorial({ d }) {
       <div className="ed-diff-grid" style={wrap({ padding: `60px ${CONTAINER_PAD}px` })}>
         <div style={{ position: "relative" }}>
           <div style={{ position: "absolute", inset: 0, transform: "translate(-10px, 10px)", background: T.sand, borderRadius: 2 }} />
-          <div style={{ position: "relative", aspectRatio: "1/1", borderRadius: 2, border: `1px solid ${T.ink}`, background: `linear-gradient(160deg, ${T.panel}, ${T.sand})` }} />
+          <div style={{ position: "relative", aspectRatio: "1/1", borderRadius: 2, overflow: "hidden", border: `1px solid ${T.ink}` }}>
+            <img src="/media/diferenciais-quente.jpg" alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+          </div>
         </div>
         <div>
           <Ornament color={accent} />

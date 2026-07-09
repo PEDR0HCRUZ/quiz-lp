@@ -229,7 +229,9 @@ function SitePreview({ d }) {
       </div>
       {/* diferenciais */}
       <div className="sobre-grid" style={wrap({ padding: `40px ${CONTAINER_PAD}px`, gap: 26, alignItems: "center" })}>
-        <div style={{ aspectRatio: "1/1", borderRadius: 16, overflow: "hidden", background: `linear-gradient(160deg, ${accentSoft}, #E8E4DA)` }} />
+        <div style={{ aspectRatio: "1/1", borderRadius: 16, overflow: "hidden" }}>
+          <img src="/media/diferenciais-verde.jpg" alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+        </div>
         <div>
           <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".12em", textTransform: "uppercase", color: accent, margin: 0 }}>Diferenciais</p>
           <h2 style={{ fontFamily: "Fraunces, serif", fontSize: 24, fontWeight: 600, margin: "8px 0 16px" }}>Por que esse atendimento?</h2>
@@ -538,6 +540,12 @@ export default function App() {
     saveSite(siteStatus, updated, answers);
   };
 
+  const changeColorScheme = (colorScheme) => {
+    const updated = { ...site, colorScheme };
+    setSite(updated);
+    saveSite(siteStatus, updated, answers);
+  };
+
   // grava (ou atualiza) a linha em sites com o status pedido. Usado tanto
   // pra salvar rascunho (assim que o site é gerado, antes de qualquer
   // pagamento — evita perder tudo se ela sair pro checkout e voltar) quanto
@@ -746,7 +754,7 @@ export default function App() {
       setEditingKey(m.key);
       return;
     }
-    if (flowStep?.type === "chips") {
+    if (flowStep?.type === "chips" || flowStep?.type === "colors") {
       setEditingKey(m.key);
       return;
     }
@@ -1269,7 +1277,7 @@ export default function App() {
             </button>
           </div>
         </div>
-        <div className="fade" style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
+        <div className="fade" style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
           <span style={{ fontSize: 12.5, color: C.sub, fontWeight: 500 }}>Tema:</span>
           {Object.entries(THEMES).map(([key, label]) => (
             <button key={key} onClick={() => changeTheme(key)}
@@ -1282,6 +1290,24 @@ export default function App() {
               {label}
             </button>
           ))}
+        </div>
+        <div className="fade" style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
+          <span style={{ fontSize: 12.5, color: C.sub, fontWeight: 500 }}>Paleta:</span>
+          {Object.keys(COLOR_SCHEMES).map((label) => {
+            const on = (site?.colorScheme || DEFAULT_COLOR_SCHEME) === label;
+            return (
+              <button key={label} onClick={() => changeColorScheme(label)}
+                style={{
+                  display: "inline-flex", alignItems: "center", gap: 6, padding: "5px 12px 5px 6px", borderRadius: 999, fontSize: 12.5, fontWeight: 600, cursor: "pointer",
+                  border: `1px solid ${on ? C.dark : C.line}`,
+                  background: on ? C.dark : "#fff",
+                  color: on ? "#fff" : C.ink,
+                }}>
+                <span style={{ width: 14, height: 14, borderRadius: 999, background: COLOR_SCHEMES[label].accent, flexShrink: 0 }} />
+                {label}
+              </button>
+            );
+          })}
         </div>
         {showPlanPicker && (
           <div className="fade" style={{ marginBottom: 16, padding: 18, borderRadius: 14, background: C.sageSoft, border: `1px solid ${C.line}` }}>
