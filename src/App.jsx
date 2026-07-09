@@ -288,6 +288,8 @@ export default function App() {
   const [siteSlug, setSiteSlug] = useState(null);
   const [siteStatus, setSiteStatus] = useState("draft");
   const [publicSite, setPublicSite] = useState(undefined); // undefined=carregando null=não achou objeto=achou
+  const [showPlanPicker, setShowPlanPicker] = useState(false);
+  const [checkingOut, setCheckingOut] = useState(false);
   const flowStartedRef = useRef(false); // true assim que o quiz começa nesta aba — evita que a sessão chegando depois (outra aba) interrompa o fluxo
   const [msgs, setMsgs] = useState([]);
   const [stepIdx, setStepIdx] = useState(0);
@@ -418,6 +420,14 @@ export default function App() {
       session = data.session;
     }
     const ownerId = session.user.id;
+
+    const { data: sub } = await supabase.from("subscriptions").select("status").eq("owner_id", ownerId).maybeSingle();
+    if (sub?.status !== "active") {
+      setPublishing(false);
+      setShowPlanPicker(true);
+      return;
+    }
+
     const { data: existing } = await supabase.from("sites").select("id, slug").eq("owner_id", ownerId).maybeSingle();
 
     const baseSlug = slugify(lead.name);
@@ -441,6 +451,39 @@ export default function App() {
     setPublishing(false);
     setAuthError(lastError?.message || "Erro ao publicar.");
   };
+
+  const startCheckout = async (plan) => {
+    setCheckingOut(true);
+    setAuthError("");
+    const { data: { session } } = await supabase.auth.getSession();
+    const res = await fetch("/api/checkout", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify({ plan, name: lead.name, email: lead.email }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.url) {
+      setCheckingOut(false);
+      setAuthError(data.error || "Erro ao iniciar o pagamento.");
+      return;
+    }
+    window.location.href = data.url;
+  };
+
+  // voltando do checkout da Asaas com sucesso: limpa a URL e tenta publicar de novo
+  // (o webhook pode levar alguns segundos pra confirmar, então tenta algumas vezes)
+  useEffect(() => {
+    if (phase !== "site" || new URLSearchParams(window.location.search).get("checkout") !== "success") return;
+    window.history.replaceState({}, "", window.location.pathname);
+    let attempts = 0;
+    const retry = setInterval(() => {
+      attempts += 1;
+      publishSite();
+      if (attempts >= 5) clearInterval(retry);
+    }, 3000);
+    publishSite();
+    return () => clearInterval(retry);
+  }, [phase]);
 
   const advance = (merged) => {
     const nextIdx = stepIdx + 1;
@@ -1047,6 +1090,25 @@ export default function App() {
             </button>
           </div>
         </div>
+        {showPlanPicker && (
+          <div className="fade" style={{ marginBottom: 16, padding: 18, borderRadius: 14, background: C.sageSoft, border: `1px solid ${C.line}` }}>
+            <p style={{ margin: "0 0 4px", fontSize: 14.5, fontWeight: 600 }}>Escolha um plano pra publicar</p>
+            <p style={{ margin: "0 0 14px", fontSize: 13, color: C.sub }}>Sua página fica no ar enquanto a assinatura estiver ativa.</p>
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+              <button onClick={() => startCheckout("monthly")} disabled={checkingOut}
+                style={{ flex: "1 1 180px", padding: "14px 16px", borderRadius: 12, border: `1px solid ${C.line}`, background: "#fff", cursor: checkingOut ? "default" : "pointer", textAlign: "left" }}>
+                <div style={{ fontWeight: 700, fontSize: 14 }}>Mensal</div>
+                <div style={{ fontSize: 13, color: C.sub }}>R$ 49,90/mês</div>
+              </button>
+              <button onClick={() => startCheckout("yearly")} disabled={checkingOut}
+                style={{ flex: "1 1 180px", padding: "14px 16px", borderRadius: 12, border: `2px solid ${C.sage}`, background: "#fff", cursor: checkingOut ? "default" : "pointer", textAlign: "left" }}>
+                <div style={{ fontWeight: 700, fontSize: 14, color: C.sage }}>Anual</div>
+                <div style={{ fontSize: 13, color: C.sub }}>R$ 29,90/mês — cobrado R$ 358,80/ano</div>
+              </button>
+            </div>
+            {checkingOut && <p style={{ margin: "10px 0 0", fontSize: 12.5, color: C.sub }}>Abrindo o checkout...</p>}
+          </div>
+        )}
         {authError && (
           <div className="fade" style={{ marginBottom: 12, fontSize: 13, color: "#B3453A" }}>{authError}</div>
         )}
