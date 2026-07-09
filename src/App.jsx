@@ -159,6 +159,7 @@ function buildCopy(input) {
 
 /* =========================== SITE PREVIEW ========================== */
 function SitePreview({ d }) {
+  const [openFaq, setOpenFaq] = useState(0);
   const { accent, accentSoft } = COLOR_SCHEMES[d.colorScheme] || COLOR_SCHEMES[DEFAULT_COLOR_SCHEME];
   const wa = waLink(d.whatsapp, d.waMessage || `Olá, ${firstName(d.name)}! Tenho interesse em agendar uma consulta.`);
   const Btn = ({ children, primary }) => (
@@ -242,12 +243,19 @@ function SitePreview({ d }) {
       <div style={{ background: C.panel }}>
         <div style={wrap({ padding: `40px ${CONTAINER_PAD}px` })}>
           <h2 style={{ fontFamily: "Fraunces, serif", fontSize: 24, fontWeight: 600, margin: "0 0 18px" }}>Perguntas frequentes</h2>
-          {d.faq.map((f, i) => (
-            <details key={i} style={{ borderTop: `1px solid ${C.line}`, padding: "13px 0" }} open={i === 0}>
-              <summary style={{ cursor: "pointer", fontWeight: 600, fontSize: 14, listStyle: "none" }}>{f.q}</summary>
-              <p style={{ margin: "8px 0 0", color: C.sub, fontSize: 13 }}>{f.a}</p>
-            </details>
-          ))}
+          {d.faq.map((f, i) => {
+            const open = openFaq === i;
+            return (
+              <div key={i} style={{ borderTop: `1px solid ${C.line}`, padding: "13px 0" }}>
+                <button onClick={() => setOpenFaq(open ? -1 : i)}
+                  style={{ display: "flex", width: "100%", alignItems: "center", justifyContent: "space-between", gap: 12, cursor: "pointer", fontWeight: 600, fontSize: 14, background: "none", border: "none", padding: 0, margin: 0, color: C.ink, textAlign: "left", font: "inherit" }}>
+                  {f.q}
+                  <Plus size={15} color={C.sub} style={{ flexShrink: 0, transition: "transform .15s", transform: open ? "rotate(45deg)" : "none" }} />
+                </button>
+                {open && <p style={{ margin: "8px 0 0", color: C.sub, fontSize: 13 }}>{f.a}</p>}
+              </div>
+            );
+          })}
         </div>
       </div>
       {/* cta final */}

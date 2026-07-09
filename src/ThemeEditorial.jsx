@@ -1,4 +1,5 @@
-import { ArrowRight, MessageCircle, Instagram, Mail, Check, MapPin } from "lucide-react";
+import { useState } from "react";
+import { ArrowRight, MessageCircle, Instagram, Mail, Check, MapPin, Plus } from "lucide-react";
 import { COLOR_SCHEMES, DEFAULT_COLOR_SCHEME, darken } from "./colorSchemes.js";
 
 /* ------------------------------------------------------------------ */
@@ -66,6 +67,7 @@ function Ornament({ color }) {
 }
 
 export function SitePreviewEditorial({ d }) {
+  const [openFaq, setOpenFaq] = useState(0);
   const { accent, accentSoft } = COLOR_SCHEMES[d.colorScheme] || COLOR_SCHEMES[DEFAULT_COLOR_SCHEME];
   const accentDeep = darken(accent, 0.22);
   const wa = waLink(d.whatsapp, d.waMessage || `Olá, ${firstName(d.name)}! Tenho interesse em agendar uma consulta.`);
@@ -201,14 +203,21 @@ export function SitePreviewEditorial({ d }) {
         <div style={wrap({ padding: `56px ${CONTAINER_PAD}px`, maxWidth: READ_MAX + CONTAINER_PAD * 2 })}>
           <Ornament color={accent} />
           <h2 className="ed-serif" style={{ fontStyle: "italic", fontWeight: 400, fontSize: 28, margin: "0 0 20px" }}>Perguntas frequentes</h2>
-          {d.faq.map((f, i) => (
-            <details key={i} style={{ borderTop: `1px solid ${T.line}`, padding: "16px 0" }} open={i === 0}>
-              <summary style={{ cursor: "pointer", fontWeight: 600, fontSize: 14.5, listStyle: "none", display: "flex", gap: 12 }}>
-                <span className="ed-serif" style={{ fontStyle: "italic", color: accent }}>{String(i + 1).padStart(2, "0")}</span>{f.q}
-              </summary>
-              <p style={{ margin: "10px 0 0 30px", color: T.sub, fontSize: 13.5 }}>{f.a}</p>
-            </details>
-          ))}
+          {d.faq.map((f, i) => {
+            const open = openFaq === i;
+            return (
+              <div key={i} style={{ borderTop: `1px solid ${T.line}`, padding: "16px 0" }}>
+                <button onClick={() => setOpenFaq(open ? -1 : i)}
+                  style={{ display: "flex", width: "100%", alignItems: "center", justifyContent: "space-between", gap: 12, cursor: "pointer", fontWeight: 600, fontSize: 14.5, background: "none", border: "none", padding: 0, margin: 0, color: T.ink, textAlign: "left", font: "inherit" }}>
+                  <span style={{ display: "flex", gap: 12 }}>
+                    <span className="ed-serif" style={{ fontStyle: "italic", color: accent }}>{String(i + 1).padStart(2, "0")}</span>{f.q}
+                  </span>
+                  <Plus size={15} color={T.sub} style={{ flexShrink: 0, transition: "transform .15s", transform: open ? "rotate(45deg)" : "none" }} />
+                </button>
+                {open && <p style={{ margin: "10px 0 0 30px", color: T.sub, fontSize: 13.5 }}>{f.a}</p>}
+              </div>
+            );
+          })}
         </div>
       </div>
 
