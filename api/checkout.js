@@ -51,7 +51,9 @@ export default async function handler(req, res) {
       successUrl: `${origin}/?checkout=success`,
       cancelUrl: `${origin}/?checkout=cancel`,
     },
-    customerData: { name, email },
+    // sem customerData: a própria página da Asaas coleta nome/e-mail/CPF/endereço.
+    // Se enviarmos customerData parcial, a Asaas passa a exigir TODOS os campos
+    // (CPF, telefone, endereço) no payload em vez de deixar a pessoa preencher lá.
     items: [{ name: "Assinatura Avence Psi", quantity: 1, value: planConfig.value }],
     subscription: { cycle: planConfig.cycle, nextDueDate: new Date(Date.now() + 86400000).toISOString().slice(0, 10) },
   };
