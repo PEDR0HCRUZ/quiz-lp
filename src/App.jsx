@@ -265,10 +265,8 @@ function SitePreview({ d }) {
           <p style={{ color: C.sub, fontSize: 13.5, marginBottom: 18 }}>{d.bio}</p>
           <Btn primary><MessageCircle size={14} /> Agende uma consulta</Btn>
         </div>
-        <div style={{ aspectRatio: "4/5", borderRadius: 16, overflow: "hidden", background: `linear-gradient(160deg, ${accentSoft}, #E8E4DA)`, display: "flex", alignItems: "center", justifyContent: "center" }}>
-          {d.photo
-            ? <img src={d.photo} alt={d.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-            : <span style={{ fontFamily: "Fraunces, serif", fontSize: 40, color: accent, opacity: .5 }}>{initials(d.name)}</span>}
+        <div style={{ aspectRatio: "4/5", borderRadius: 16, overflow: "hidden" }}>
+          <img src="/media/sobre-verde.jpg" alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
         </div>
       </div>
       {/* faq */}
@@ -284,7 +282,11 @@ function SitePreview({ d }) {
                   {f.q}
                   <Plus size={15} color={C.sub} style={{ flexShrink: 0, transition: "transform .15s", transform: open ? "rotate(45deg)" : "none" }} />
                 </button>
-                {open && <p style={{ margin: "8px 0 0", color: C.sub, fontSize: 13 }}>{f.a}</p>}
+                <div style={{ display: "grid", gridTemplateRows: open ? "1fr" : "0fr", transition: "grid-template-rows .25s ease" }}>
+                  <div style={{ overflow: "hidden" }}>
+                    <p style={{ margin: "8px 0 0", color: C.sub, fontSize: 13 }}>{f.a}</p>
+                  </div>
+                </div>
               </div>
             );
           })}
@@ -1321,12 +1323,17 @@ export default function App() {
           .hero-grid > div:last-child, .sobre-grid > div:last-child { max-width: 220px; margin: 20px auto 0; }
           .site-nav { display: none !important; }
         }
+        @media (max-width: 900px) {
+          .site-editor-cols { flex-direction: column; }
+          .site-sidebar { width: 100% !important; position: static !important; flex-direction: row !important; flex-wrap: wrap; gap: 20px !important; }
+          .site-sidebar > div { flex: 1 1 200px; }
+        }
         @media (max-width: 480px) {
           .site-done-wrap { padding: 12px !important; }
           .site-actions-row button { flex: 1; }
         }
       `}</style>
-      <div style={{ maxWidth: 940, margin: "0 auto" }}>
+      <div style={{ maxWidth: 1180, margin: "0 auto" }}>
         <div className="fade" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, flexWrap: "wrap", gap: 12 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
             <div style={{ width: 40, height: 40, flexShrink: 0, borderRadius: 11, background: C.sageSoft, display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -1337,8 +1344,8 @@ export default function App() {
               <div style={{ fontSize: 13, color: C.sub }}>Feito a partir das suas respostas. Role para conferir.</div>
             </div>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-            <div className="site-actions-row" style={{ display: "flex", gap: 10, width: "100%", maxWidth: 320 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
+            <div className="site-actions-row" style={{ display: "flex", gap: 10 }}>
               <button onClick={restartQuiz}
                 style={{ padding: "11px 18px", borderRadius: 999, border: `1px solid ${C.line}`, background: "#fff", color: C.ink, fontWeight: 600, fontSize: 13.5, cursor: "pointer", whiteSpace: "nowrap" }}>
                 Recomeçar
@@ -1350,38 +1357,6 @@ export default function App() {
             </div>
             {renderAccountMenu()}
           </div>
-        </div>
-        <div className="fade" style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
-          <span style={{ fontSize: 12.5, color: C.sub, fontWeight: 500 }}>Tema:</span>
-          {Object.entries(THEMES).map(([key, label]) => (
-            <button key={key} onClick={() => changeTheme(key)}
-              style={{
-                padding: "6px 14px", borderRadius: 999, fontSize: 12.5, fontWeight: 600, cursor: "pointer",
-                border: `1px solid ${(site?.theme || "classic") === key ? C.dark : C.line}`,
-                background: (site?.theme || "classic") === key ? C.dark : "#fff",
-                color: (site?.theme || "classic") === key ? "#fff" : C.ink,
-              }}>
-              {label}
-            </button>
-          ))}
-        </div>
-        <div className="fade" style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
-          <span style={{ fontSize: 12.5, color: C.sub, fontWeight: 500 }}>Paleta:</span>
-          {Object.keys(COLOR_SCHEMES).map((label) => {
-            const on = (site?.colorScheme || DEFAULT_COLOR_SCHEME) === label;
-            return (
-              <button key={label} onClick={() => changeColorScheme(label)}
-                style={{
-                  display: "inline-flex", alignItems: "center", gap: 6, padding: "5px 12px 5px 6px", borderRadius: 999, fontSize: 12.5, fontWeight: 600, cursor: "pointer",
-                  border: `1px solid ${on ? C.dark : C.line}`,
-                  background: on ? C.dark : "#fff",
-                  color: on ? "#fff" : C.ink,
-                }}>
-                <span style={{ width: 14, height: 14, borderRadius: 999, background: COLOR_SCHEMES[label].accent, flexShrink: 0 }} />
-                {label}
-              </button>
-            );
-          })}
         </div>
         {showPlanPicker && (
           <div className="fade" style={{ marginBottom: 16, padding: 18, borderRadius: 14, background: C.sageSoft, border: `1px solid ${C.line}` }}>
@@ -1415,8 +1390,48 @@ export default function App() {
             </button>
           </div>
         )}
-        <div className="prev fade" style={{ borderRadius: 18, border: `1px solid ${C.line}`, overflow: "auto", maxHeight: "calc(100vh - 120px)", background: "#fff", boxShadow: "0 24px 60px -36px rgba(0,0,0,.3)" }}>
-          <ThemedSite d={site} />
+        <div className="site-editor-cols" style={{ display: "flex", gap: 20, alignItems: "flex-start" }}>
+          <div className="site-sidebar fade" style={{ width: 224, flexShrink: 0, position: "sticky", top: 22, display: "flex", flexDirection: "column", gap: 22 }}>
+            <div>
+              <div style={{ fontSize: 12, color: C.sub, fontWeight: 600, marginBottom: 8, textTransform: "uppercase", letterSpacing: ".04em" }}>Tema</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {Object.entries(THEMES).map(([key, label]) => (
+                  <button key={key} onClick={() => changeTheme(key)}
+                    style={{
+                      padding: "9px 13px", borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: "pointer", textAlign: "left",
+                      border: `1px solid ${(site?.theme || "classic") === key ? C.dark : C.line}`,
+                      background: (site?.theme || "classic") === key ? C.dark : "#fff",
+                      color: (site?.theme || "classic") === key ? "#fff" : C.ink,
+                    }}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <div style={{ fontSize: 12, color: C.sub, fontWeight: 600, marginBottom: 8, textTransform: "uppercase", letterSpacing: ".04em" }}>Paleta</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {Object.keys(COLOR_SCHEMES).map((label) => {
+                  const on = (site?.colorScheme || DEFAULT_COLOR_SCHEME) === label;
+                  return (
+                    <button key={label} onClick={() => changeColorScheme(label)}
+                      style={{
+                        display: "flex", alignItems: "center", gap: 8, padding: "9px 13px", borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: "pointer", textAlign: "left",
+                        border: `1px solid ${on ? C.dark : C.line}`,
+                        background: on ? C.dark : "#fff",
+                        color: on ? "#fff" : C.ink,
+                      }}>
+                      <span style={{ width: 14, height: 14, borderRadius: 999, background: COLOR_SCHEMES[label].accent, flexShrink: 0 }} />
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+          <div className="prev fade" style={{ flex: 1, minWidth: 0, borderRadius: 18, border: `1px solid ${C.line}`, overflow: "auto", maxHeight: "calc(100vh - 120px)", background: "#fff", boxShadow: "0 24px 60px -36px rgba(0,0,0,.3)" }}>
+            <ThemedSite d={site} />
+          </div>
         </div>
       </div>
     </div>

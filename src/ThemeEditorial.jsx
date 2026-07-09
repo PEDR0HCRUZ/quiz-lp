@@ -195,10 +195,8 @@ export function SitePreviewEditorial({ d }) {
       <div id="sobre" className="ed-sobre-grid" style={wrap({ padding: `60px ${CONTAINER_PAD}px`, scrollMarginTop: 70 })}>
         <div style={{ position: "relative" }}>
           <div style={{ position: "absolute", inset: 0, transform: "translate(12px, -12px)", background: T.sand, borderRadius: 2 }} />
-          <div style={{ position: "relative", aspectRatio: "4/5", borderRadius: 2, overflow: "hidden", border: `1px solid ${T.ink}`, background: T.panel, display: "flex", alignItems: "center", justifyContent: "center" }}>
-            {d.photo
-              ? <img src={d.photo} alt={d.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-              : <span className="ed-serif" style={{ fontStyle: "italic", fontSize: 44, color: accentDeep, opacity: .5 }}>{initials(d.name)}</span>}
+          <div style={{ position: "relative", aspectRatio: "4/5", borderRadius: 2, overflow: "hidden", border: `1px solid ${T.ink}` }}>
+            <img src="/media/sobre-quente.jpg" alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
           </div>
         </div>
         <div>
@@ -225,7 +223,11 @@ export function SitePreviewEditorial({ d }) {
                   </span>
                   <Plus size={15} color={T.sub} style={{ flexShrink: 0, transition: "transform .15s", transform: open ? "rotate(45deg)" : "none" }} />
                 </button>
-                {open && <p style={{ margin: "10px 0 0 30px", color: T.sub, fontSize: 13.5 }}>{f.a}</p>}
+                <div style={{ display: "grid", gridTemplateRows: open ? "1fr" : "0fr", transition: "grid-template-rows .25s ease" }}>
+                  <div style={{ overflow: "hidden" }}>
+                    <p style={{ margin: "10px 0 0 30px", color: T.sub, fontSize: 13.5 }}>{f.a}</p>
+                  </div>
+                </div>
               </div>
             );
           })}
