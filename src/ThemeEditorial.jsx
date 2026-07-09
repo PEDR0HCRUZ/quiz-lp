@@ -91,7 +91,9 @@ export function SitePreviewEditorial({ d }) {
       {/* header */}
       <div style={{ position: "sticky", top: 0, zIndex: 5, background: "rgba(251,245,234,.88)", backdropFilter: "blur(10px)", borderBottom: `1px solid ${T.line}` }}>
         <div style={wrap({ display: "flex", alignItems: "center", justifyContent: "space-between", padding: `16px ${CONTAINER_PAD}px` })}>
-          <span className="ed-serif" style={{ fontStyle: "italic", fontWeight: 400, fontSize: 20 }}>{d.name}</span>
+          {d.logo
+            ? <img src={d.logo} alt={d.name} style={{ height: 26, maxWidth: 160, objectFit: "contain" }} />
+            : <span className="ed-serif" style={{ fontStyle: "italic", fontWeight: 400, fontSize: 20 }}>{d.name}</span>}
           <nav className="ed-nav" style={{ display: "flex", gap: 22, fontSize: 12.5, color: T.sub, letterSpacing: ".02em" }}>
             <span>Especialidades</span><span>Método</span><span>Sobre</span><span>Dúvidas</span>
           </nav>

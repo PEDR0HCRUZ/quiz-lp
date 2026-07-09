@@ -79,8 +79,14 @@ const FLOW = [
   { key: "temas", bot: "Quais temas você mais atende? Selecione quantos quiser — e adicione os seus no campo abaixo.", type: "cards",
     options: ["Ansiedade", "Depressão", "Autoestima", "Autoconhecimento", "Relacionamentos", "Luto", "Estresse / Burnout", "Traumas", "Síndrome do pânico", "TOC", "Fobias", "Maternidade / Parentalidade"] },
   { key: "tom", bot: "Que tom combina mais com você?", type: "chips", options: ["Acolhedor", "Leve e próximo", "Direto", "Técnico"] },
-  { key: "sobre", bot: "Me conta em poucas frases o que te move como profissional. Se quiser, use um dos começos abaixo — eu deixo bonito depois.", ph: "escreva do seu jeito...", type: "text",
-    starters: ["Acredito que", "O mundo pode ser melhor através da", "Meu propósito é", "Escolhi essa profissão porque"] },
+  { key: "sobre", bot: "Me conta em poucas frases o que te move como profissional. Se quiser, use um dos começos abaixo — eu já deixo uma frase pronta que você pode editar.", ph: "escreva do seu jeito...", type: "text",
+    starters: [
+      { label: "Acredito que…", template: "Acredito que cada pessoa carrega dentro de si a capacidade de se reconectar consigo mesma e viver com mais leveza." },
+      { label: "O mundo pode ser melhor através da…", template: "O mundo pode ser melhor através da escuta, do cuidado e de relações mais verdadeiras entre as pessoas." },
+      { label: "Meu propósito é…", template: "Meu propósito é acompanhar pessoas em momentos de transformação, oferecendo um espaço seguro para se conhecerem melhor." },
+      { label: "Escolhi essa profissão porque…", template: "Escolhi essa profissão porque acredito no poder da escuta e no impacto que ela pode ter na vida das pessoas." },
+    ] },
+  { key: "logo", bot: "Você já tem uma logo? Se tiver, me manda o arquivo (de preferência em PNG). Se não tiver, sem problema — seu nome aparece no topo do site.", type: "image" },
   { key: "photo", bot: "Pra deixar o site com a sua cara, envie uma foto profissional. Ela vai aparecer no topo e na seção “sobre”. Pode pular e adicionar depois.", type: "image" },
   { key: "whatsapp", bot: "Quase lá. Qual seu WhatsApp, com DDD?", ph: "51 99999-9999", type: "text" },
   { key: "instagram", bot: "Por fim, seu Instagram — pra fechar o rodapé.", ph: "@seuperfil", type: "text" },
@@ -137,7 +143,9 @@ function SitePreview({ d }) {
       {/* header */}
       <div style={{ position: "sticky", top: 0, zIndex: 5, background: "rgba(255,255,255,.9)", backdropFilter: "blur(8px)", borderBottom: `1px solid ${C.line}` }}>
         <div style={wrap({ display: "flex", alignItems: "center", justifyContent: "space-between", padding: `14px ${CONTAINER_PAD}px` })}>
-          <span style={{ fontFamily: "Fraunces, serif", fontWeight: 600, fontSize: 16 }}>{d.name}</span>
+          {d.logo
+            ? <img src={d.logo} alt={d.name} style={{ height: 28, maxWidth: 160, objectFit: "contain" }} />
+            : <span style={{ fontFamily: "Fraunces, serif", fontWeight: 600, fontSize: 16 }}>{d.name}</span>}
           <nav className="site-nav" style={{ display: "flex", gap: 16, fontSize: 12, color: C.sub }}><span>Especialidades</span><span>Método</span><span>Sobre</span><span>Dúvidas</span></nav>
           <Btn primary><MessageCircle size={14} /> Agendar</Btn>
         </div>
@@ -314,9 +322,9 @@ export default function App() {
   const [cardSel, setCardSel] = useState([]);
   const [cardOpts, setCardOpts] = useState(CARDS_STEP ? CARDS_STEP.options : []);
   const [cardCustom, setCardCustom] = useState("");
-  // foto de perfil
-  const [photoDraft, setPhotoDraft] = useState("");
-  const [photoUrl, setPhotoUrl] = useState("");
+  // imagem (foto ou logo, conforme a etapa ativa)
+  const [imageDraft, setImageDraft] = useState("");
+  const [imageUrl, setImageUrl] = useState("");
   // etapas "specialty" e "crp": especialidade e registro, cada uma leve e isolada
   const [specialtySel, setSpecialtySel] = useState("");
   const [specialtyCustom, setSpecialtyCustom] = useState("");
@@ -347,14 +355,17 @@ export default function App() {
   // (auth por magic link removida por enquanto — sem verificação de e-mail)
   const startQuiz = async () => {
     if (!lead.name.trim() || !/\S+@\S+\.\S+/.test(lead.email)) return;
+    // marca ANTES de chamar signInAnonymously — esse próprio método dispara
+    // o listener onAuthStateChange internamente, que pode rodar hydrate()
+    // numa corrida antes da nossa continuação abaixo, duplicando a 1ª mensagem.
+    flowStartedRef.current = true;
     setSendingLink(true);
     setAuthError("");
     const { error } = await supabase.auth.signInAnonymously({
       options: { data: { name: lead.name, email: lead.email } },
     });
     setSendingLink(false);
-    if (error) { setAuthError(error.message); return; }
-    flowStartedRef.current = true;
+    if (error) { flowStartedRef.current = false; setAuthError(error.message); return; }
     setPhase("chat");
     botSay(FLOW[0].bot.replace("{first}", firstName(lead.name)));
     // manda o lead pro Notion em segundo plano — não trava o quiz se falhar
@@ -577,21 +588,27 @@ export default function App() {
     advance(merged);
   };
 
-  // --- foto de perfil ---
-  const handleFile = (e) => {
+  // --- imagem (foto de perfil OU logo — mesma UI, chave muda conforme a etapa) ---
+  const IMAGE_LABELS = {
+    photo: { added: "📷 Foto adicionada", skipped: "Seguir sem foto por enquanto" },
+    logo: { added: "🖼️ Logo enviada", skipped: "Seguir sem logo por enquanto" },
+  };
+  const handleImageFile = (e) => {
     const f = e.target.files?.[0];
     if (!f) return;
     const r = new FileReader();
-    r.onload = () => setPhotoDraft(r.result);
+    r.onload = () => setImageDraft(r.result);
     r.readAsDataURL(f);
   };
-  const confirmPhoto = (val) => {
-    const text = val ? "📷 Foto adicionada" : "Seguir sem foto por enquanto";
-    if (applyAnswer("photo", text, val || "", { photo: val || "" })) { setPhotoDraft(""); setPhotoUrl(""); return; }
-    setMsgs((m) => [...m, { id: uid(), role: "user", text, key: "photo", photo: val || "" }]);
-    const merged = { ...answers, photo: val || "" };
+  const confirmImage = (val) => {
+    const key = (editingFlowStep || step)?.key || "photo";
+    const labels = IMAGE_LABELS[key] || IMAGE_LABELS.photo;
+    const text = val ? labels.added : labels.skipped;
+    if (applyAnswer(key, text, val || "", { photo: val || "" })) { setImageDraft(""); setImageUrl(""); return; }
+    setMsgs((m) => [...m, { id: uid(), role: "user", text, key, photo: val || "" }]);
+    const merged = { ...answers, [key]: val || "" };
     setAnswers(merged);
-    setPhotoDraft(""); setPhotoUrl("");
+    setImageDraft(""); setImageUrl("");
     advance(merged);
   };
 
@@ -619,8 +636,8 @@ export default function App() {
       return;
     }
     if (flowStep?.type === "image") {
-      setPhotoDraft(m.photo || "");
-      setPhotoUrl("");
+      setImageDraft(m.photo || "");
+      setImageUrl("");
       setEditingKey(m.key);
       return;
     }
@@ -643,7 +660,7 @@ export default function App() {
   const cancelEdit = () => { setEditingId(null); setEditDraft(""); };
   const cancelKeyEdit = () => {
     setEditingKey(null);
-    setPhotoDraft(""); setPhotoUrl("");
+    setImageDraft(""); setImageUrl("");
     setCardSel([]);
     setSpecialtySel(""); setSpecialtyCustom("");
     setCrpNumber("");
@@ -667,9 +684,10 @@ export default function App() {
     setCardSel([]);
   };
 
-  // --- adicionar início sugerido ao texto ---
-  const addStarter = (text) => {
-    setDraft((d) => (d.trim() ? d.trimEnd() + " " : "") + text + " ");
+  // --- usar um começo sugerido: preenche com uma frase completa (da base,
+  // sem IA) que ela pode editar, em vez de só um fragmento incompleto ---
+  const addStarter = (template) => {
+    setDraft(template);
     setTimeout(() => composerRef.current?.focus(), 0);
   };
 
@@ -713,6 +731,7 @@ export default function App() {
         name: lead.name, email: lead.email, title,
         modalidade: all.modalidade, whatsapp: all.whatsapp, instagram: all.instagram,
         photo: all.photo || "",
+        logo: all.logo || "",
         waMessage: `Olá! Vi seu site e tenho interesse em agendar uma consulta.`,
         theme: "classic",
       };
@@ -953,15 +972,15 @@ export default function App() {
             )}
             {!typing && activeType === "image" && (
               <div>
-                <input type="file" accept="image/*" ref={fileRef} style={{ display: "none" }} onChange={handleFile} />
-                {photoDraft ? (
+                <input type="file" accept="image/*" ref={fileRef} style={{ display: "none" }} onChange={handleImageFile} />
+                {imageDraft ? (
                   <div style={{ display: "flex", alignItems: "center", gap: 11 }}>
-                    <img src={photoDraft} alt="" style={{ width: 54, height: 54, borderRadius: 12, objectFit: "cover", border: `1px solid ${C.line}` }} />
-                    <button onClick={() => confirmPhoto(photoDraft)}
+                    <img src={imageDraft} alt="" style={{ width: 54, height: 54, borderRadius: 12, objectFit: "cover", border: `1px solid ${C.line}` }} />
+                    <button onClick={() => confirmImage(imageDraft)}
                       style={{ flex: 1, padding: "12px", borderRadius: 999, border: "none", background: C.dark, color: "#fff", fontWeight: 600, fontSize: 14, cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 7 }}>
-                      <Check size={16} /> Usar esta foto
+                      <Check size={16} /> {(editingFlowStep || step)?.key === "logo" ? "Usar esta logo" : "Usar esta foto"}
                     </button>
-                    <button onClick={() => setPhotoDraft("")} aria-label="Trocar"
+                    <button onClick={() => setImageDraft("")} aria-label="Trocar"
                       style={{ width: 44, height: 44, flexShrink: 0, borderRadius: 999, border: `1px solid ${C.line}`, background: "#fff", color: C.sub, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
                       <X size={16} />
                     </button>
@@ -971,18 +990,18 @@ export default function App() {
                     <div style={{ display: "flex", gap: 9, alignItems: "center", marginBottom: 10 }}>
                       <button onClick={() => fileRef.current?.click()}
                         style={{ flex: 1, padding: "12px", borderRadius: 999, border: `1px solid ${C.sage}`, background: C.sageSoft, color: C.sage, fontWeight: 600, fontSize: 14, cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
-                        <ImageIcon size={16} /> Escolher foto
+                        <ImageIcon size={16} /> {(editingFlowStep || step)?.key === "logo" ? "Escolher logo" : "Escolher foto"}
                       </button>
-                      <button onClick={() => confirmPhoto("")}
+                      <button onClick={() => confirmImage("")}
                         style={{ flexShrink: 0, padding: "0 18px", height: 44, borderRadius: 999, border: `1px solid ${C.line}`, background: "#fff", color: C.sub, fontWeight: 600, fontSize: 13.5, cursor: "pointer" }}>
                         Pular
                       </button>
                     </div>
                     <div style={{ display: "flex", gap: 9, alignItems: "center" }}>
-                      <input value={photoUrl} onChange={(e) => setPhotoUrl(e.target.value)} placeholder="ou cole o link de uma imagem"
-                        onKeyDown={(e) => e.key === "Enter" && photoUrl.trim() && setPhotoDraft(photoUrl.trim())}
+                      <input value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} placeholder="ou cole o link de uma imagem"
+                        onKeyDown={(e) => e.key === "Enter" && imageUrl.trim() && setImageDraft(imageUrl.trim())}
                         style={{ flex: 1, minWidth: 0, padding: "11px 15px", borderRadius: 999, border: `1px solid ${C.line}`, background: "#fff", fontSize: 14, fontFamily: "Inter" }} />
-                      <button onClick={() => photoUrl.trim() && setPhotoDraft(photoUrl.trim())} aria-label="Usar link"
+                      <button onClick={() => imageUrl.trim() && setImageDraft(imageUrl.trim())} aria-label="Usar link"
                         style={{ width: 42, height: 42, flexShrink: 0, borderRadius: 999, border: `1px solid ${C.line}`, background: "#fff", color: C.sub, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
                         <ArrowRight size={16} />
                       </button>
@@ -998,11 +1017,11 @@ export default function App() {
                     const on = cardSel.includes(o);
                     return (
                       <button key={o} onClick={() => toggleCard(o)}
-                        style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "9px 14px", borderRadius: 999, fontWeight: 600, fontSize: 13.5, cursor: "pointer",
+                        style={{ display: "inline-flex", alignItems: "center", padding: "9px 14px", borderRadius: 999, fontWeight: 600, fontSize: 13.5, cursor: "pointer",
                           border: `1px solid ${on ? C.sage : C.line}`,
                           background: on ? C.sage : "#fff",
                           color: on ? "#fff" : C.ink, transition: "all .15s" }}>
-                        {on && <Check size={14} />}{o}
+                        {o}
                       </button>
                     );
                   })}
@@ -1028,9 +1047,9 @@ export default function App() {
                 {step?.starters && (
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 7, marginBottom: 10 }}>
                     {step.starters.map((s) => (
-                      <button key={s} onClick={() => addStarter(s)}
+                      <button key={s.label} onClick={() => addStarter(s.template)}
                         style={{ padding: "7px 13px", borderRadius: 999, border: `1px dashed ${C.sage}`, background: C.sageSoft, color: C.sage, fontWeight: 500, fontSize: 13, cursor: "pointer" }}>
-                        {s}…
+                        {s.label}
                       </button>
                     ))}
                   </div>
