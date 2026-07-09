@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import {
   ArrowRight, Send, MessageCircle, Instagram, Mail, Check,
   Sparkles, Loader2, Pencil, X, Plus, Image as ImageIcon, MapPin,
+  LogOut, ChevronDown, Inbox,
 } from "lucide-react";
 import { supabase } from "./lib/supabase.js";
 import { slugify, withSuffix } from "./lib/slug.js";
@@ -384,6 +385,8 @@ export default function App() {
   const [lead, setLead] = useState({ name: "", email: "" });
   const [authError, setAuthError] = useState("");
   const [sendingLink, setSendingLink] = useState(false);
+  const [linkSent, setLinkSent] = useState(false);
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [publishedUrl, setPublishedUrl] = useState(null);
   const [siteSlug, setSiteSlug] = useState(null);
@@ -447,31 +450,40 @@ export default function App() {
     }, 700);
   };
 
-  // login anônimo do Supabase: cria sessão na hora, sem e-mail/SMTP.
-  // (auth por magic link removida por enquanto — sem verificação de e-mail)
-  const startQuiz = async () => {
+  // login por magic link — cria a conta (se for a primeira vez) ou autentica
+  // de novo (se já existir), sem senha. A sessão só existe de fato depois
+  // que a pessoa clica no link recebido por e-mail (onAuthStateChange trata
+  // a volta, lá embaixo).
+  const sendMagicLink = async () => {
     if (!lead.name.trim() || !/\S+@\S+\.\S+/.test(lead.email)) return;
     const name = titleCase(lead.name);
     setLead((l) => ({ ...l, name }));
-    // marca ANTES de chamar signInAnonymously — esse próprio método dispara
-    // o listener onAuthStateChange internamente, que pode rodar hydrate()
-    // numa corrida antes da nossa continuação abaixo, duplicando a 1ª mensagem.
-    flowStartedRef.current = true;
     setSendingLink(true);
     setAuthError("");
-    const { error } = await supabase.auth.signInAnonymously({
-      options: { data: { name, email: lead.email } },
+    const { error } = await supabase.auth.signInWithOtp({
+      email: lead.email,
+      options: { emailRedirectTo: window.location.origin, data: { name } },
     });
     setSendingLink(false);
-    if (error) { flowStartedRef.current = false; setAuthError(error.message); return; }
-    setPhase("chat");
-    botSay(FLOW[0].bot.replace("{first}", firstName(name)));
-    // manda o lead pro Notion em segundo plano — não trava o quiz se falhar
+    if (error) { setAuthError(error.message); return; }
+    setLinkSent(true);
+    // manda o lead pro Notion em segundo plano — não trava o fluxo se falhar
     fetch("/api/lead", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name, email: lead.email }),
     }).catch(() => {});
+  };
+
+  const logout = async () => {
+    await supabase.auth.signOut();
+    flowStartedRef.current = false;
+    setAccountMenuOpen(false);
+    setLead({ name: "", email: "" });
+    setLinkSent(false);
+    setMsgs([]); setStepIdx(0); setAnswers({});
+    setSite(null); setSiteSlug(null); setSiteStatus("draft"); setPublishedUrl(null);
+    setPhase("welcome");
   };
 
   // roteamento simples (path != "/" = site público) + sessão existente (magic link)
@@ -571,12 +583,16 @@ export default function App() {
   const publishSite = async () => {
     setPublishing(true);
     setAuthError("");
-    let { data: { session } } = await supabase.auth.getSession();
+    const { data: { session } } = await supabase.auth.getSession();
     if (!session) {
-      // fallback: não deveria acontecer (a sessão anônima é criada no início do quiz), mas garante
-      const { data, error } = await supabase.auth.signInAnonymously({ options: { data: { name: lead.name, email: lead.email } } });
-      if (error) { setPublishing(false); setAuthError(error.message); return; }
-      session = data.session;
+      // sessão expirou/caiu — sem login real não tem como recriar sem
+      // perder a conta certa, então manda de volta pro login em vez de
+      // criar uma sessão nova (que geraria um site órfão, desconectado
+      // da conta de verdade).
+      setPublishing(false);
+      setAuthError("Sua sessão expirou. Faça login de novo pra publicar.");
+      logout();
+      return;
     }
     const ownerId = session.user.id;
 
@@ -893,14 +909,66 @@ export default function App() {
     return <div style={{ background: "#fff" }}>{fontStyle}<ThemedSite d={publicSite} /></div>;
   }
 
+  // ícone de conta (foto ou iniciais) + dropdown com logout — aparece nas
+  // fases "chat" e "site", onde já existe uma sessão de verdade.
+  const renderAccountMenu = () => (
+    <div style={{ position: "relative" }}>
+      <button onClick={() => setAccountMenuOpen((v) => !v)} aria-label="Conta"
+        style={{ display: "flex", alignItems: "center", gap: 6, padding: 3, borderRadius: 999, border: `1px solid ${C.line}`, background: "#fff", cursor: "pointer" }}>
+        <div style={{ width: 26, height: 26, borderRadius: 999, overflow: "hidden", flexShrink: 0, background: C.sageSoft, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          {site?.photo
+            ? <img src={site.photo} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+            : <span style={{ fontSize: 10.5, fontWeight: 700, color: C.sage }}>{initials(lead.name)}</span>}
+        </div>
+        <ChevronDown size={13} color={C.sub} style={{ marginRight: 3 }} />
+      </button>
+      {accountMenuOpen && (
+        <>
+          <div onClick={() => setAccountMenuOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 9 }} />
+          <div className="fade" style={{ position: "absolute", top: "calc(100% + 8px)", right: 0, zIndex: 10, minWidth: 190, background: "#fff", border: `1px solid ${C.line}`, borderRadius: 14, boxShadow: "0 20px 40px -20px rgba(0,0,0,.25)", overflow: "hidden" }}>
+            <div style={{ padding: "12px 14px", borderBottom: `1px solid ${C.line}` }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: C.ink }}>{lead.name}</div>
+              <div style={{ fontSize: 11.5, color: C.sub, marginTop: 1, wordBreak: "break-all" }}>{lead.email}</div>
+            </div>
+            <button onClick={logout}
+              style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "10px 14px", border: "none", background: "none", cursor: "pointer", fontSize: 13, fontWeight: 600, color: "#B3453A", textAlign: "left" }}>
+              <LogOut size={14} /> Sair
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+
   /* ---- LOADING inicial (checando sessão) ---- */
   if (phase === "loading") {
     return <Shell><div className="fade" style={{ color: C.sub, fontSize: 14 }}>Carregando...</div></Shell>;
   }
 
-  /* ---- WELCOME / captura de lead ---- */
+  /* ---- WELCOME / login por magic link ---- */
   if (phase === "welcome") {
     const ok = lead.name.trim() && /\S+@\S+\.\S+/.test(lead.email);
+    if (linkSent) {
+      return (
+        <Shell>
+          <div className="fade welcome-card" style={{ width: "100%", maxWidth: 440, background: C.panel, border: `1px solid ${C.line}`, borderRadius: 22, boxShadow: "0 30px 70px -40px rgba(0,0,0,.3)", textAlign: "center" }}>
+            <div style={{ width: 48, height: 48, borderRadius: 14, background: C.sageSoft, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 18px" }}>
+              <Inbox size={22} color={C.sage} />
+            </div>
+            <h1 style={{ fontFamily: "Fraunces, serif", fontSize: 24, fontWeight: 600, margin: "0 0 10px" }}>Verifique seu e-mail</h1>
+            <p style={{ color: C.sub, fontSize: 14.5, lineHeight: 1.6, margin: "0 0 4px" }}>
+              Mandamos um link de acesso pra <b>{lead.email}</b>. Clique nele pra continuar — pode fechar essa aba.
+            </p>
+            <p style={{ color: C.sub, fontSize: 13, margin: "16px 0 0" }}>
+              Não chegou? Confira o spam ou{" "}
+              <button onClick={() => setLinkSent(false)} style={{ background: "none", border: "none", padding: 0, color: C.sage, fontWeight: 600, fontSize: 13, cursor: "pointer", textDecoration: "underline" }}>
+                tente de novo
+              </button>.
+            </p>
+          </div>
+        </Shell>
+      );
+    }
     return (
       <Shell>
         <div className="fade welcome-card" style={{ width: "100%", maxWidth: 440, background: C.panel, border: `1px solid ${C.line}`, borderRadius: 22, boxShadow: "0 30px 70px -40px rgba(0,0,0,.3)" }}>
@@ -920,17 +988,17 @@ export default function App() {
             <div>
               <div style={{ fontSize: 12, color: C.sub, marginBottom: 6, fontWeight: 500 }}>Seu melhor e-mail</div>
               <input value={lead.email} onChange={(e) => setLead({ ...lead, email: e.target.value })} placeholder="voce@email.com"
-                onKeyDown={(e) => e.key === "Enter" && startQuiz()}
+                onKeyDown={(e) => e.key === "Enter" && sendMagicLink()}
                 style={{ width: "100%", padding: "13px 15px", borderRadius: 11, border: `1px solid ${C.line}`, background: "#fff", fontSize: 15, fontFamily: "Inter" }} />
             </div>
           </div>
           {authError && <p style={{ color: "#B3453A", fontSize: 13, margin: "12px 0 0" }}>{authError}</p>}
-          <button onClick={startQuiz} disabled={!ok || sendingLink}
+          <button onClick={sendMagicLink} disabled={!ok || sendingLink}
             style={{ marginTop: 22, width: "100%", padding: "14px", borderRadius: 999, border: "none", cursor: ok && !sendingLink ? "pointer" : "default", background: ok ? C.dark : "#D9D5CA", color: "#fff", fontWeight: 600, fontSize: 15, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8, transition: "background .2s" }}>
-            {sendingLink ? "Preparando..." : "Começar a conversa"} <ArrowRight size={17} />
+            {sendingLink ? "Enviando..." : "Entrar por e-mail"} <ArrowRight size={17} />
           </button>
           <p style={{ fontSize: 11.5, color: C.sub, textAlign: "center", margin: "14px 0 0" }}>
-            Sem spam, sem senha.
+            Sem senha — a gente manda um link de acesso pro seu e-mail.
           </p>
         </div>
       </Shell>
@@ -944,7 +1012,10 @@ export default function App() {
         <div className="chat-card" style={{ width: "100%", maxWidth: 480, background: C.panel, border: `1px solid ${C.line}`, borderRadius: 22, display: "flex", flexDirection: "column", overflow: "hidden", boxShadow: "0 30px 70px -40px rgba(0,0,0,.3)" }}>
           <div style={{ padding: "16px 20px", borderBottom: `1px solid ${C.line}`, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <Brand />
-            <span style={{ fontSize: 11.5, color: C.sage, fontWeight: 600 }}>● online</span>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <span style={{ fontSize: 11.5, color: C.sage, fontWeight: 600 }}>● online</span>
+              {renderAccountMenu()}
+            </div>
           </div>
           <div ref={scrollRef} style={{ flex: 1, overflow: "auto", padding: "20px", display: "flex", flexDirection: "column", gap: 12 }}>
             {msgs.map((m) => {
@@ -1266,15 +1337,18 @@ export default function App() {
               <div style={{ fontSize: 13, color: C.sub }}>Feito a partir das suas respostas. Role para conferir.</div>
             </div>
           </div>
-          <div className="site-actions-row" style={{ display: "flex", gap: 10, width: "100%", maxWidth: 320 }}>
-            <button onClick={restartQuiz}
-              style={{ padding: "11px 18px", borderRadius: 999, border: `1px solid ${C.line}`, background: "#fff", color: C.ink, fontWeight: 600, fontSize: 13.5, cursor: "pointer", whiteSpace: "nowrap" }}>
-              Recomeçar
-            </button>
-            <button onClick={publishSite} disabled={publishing}
-              style={{ padding: "11px 20px", borderRadius: 999, border: "none", background: C.dark, color: "#fff", fontWeight: 600, fontSize: 13.5, cursor: publishing ? "default" : "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 7, whiteSpace: "nowrap" }}>
-              <Check size={16} /> {publishing ? "Publicando..." : siteStatus === "published" ? "Atualizar site" : "Publicar site"}
-            </button>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+            <div className="site-actions-row" style={{ display: "flex", gap: 10, width: "100%", maxWidth: 320 }}>
+              <button onClick={restartQuiz}
+                style={{ padding: "11px 18px", borderRadius: 999, border: `1px solid ${C.line}`, background: "#fff", color: C.ink, fontWeight: 600, fontSize: 13.5, cursor: "pointer", whiteSpace: "nowrap" }}>
+                Recomeçar
+              </button>
+              <button onClick={publishSite} disabled={publishing}
+                style={{ padding: "11px 20px", borderRadius: 999, border: "none", background: C.dark, color: "#fff", fontWeight: 600, fontSize: 13.5, cursor: publishing ? "default" : "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 7, whiteSpace: "nowrap" }}>
+                <Check size={16} /> {publishing ? "Publicando..." : siteStatus === "published" ? "Atualizar site" : "Publicar site"}
+              </button>
+            </div>
+            {renderAccountMenu()}
           </div>
         </div>
         <div className="fade" style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
