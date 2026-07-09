@@ -42,7 +42,8 @@ export default async function handler(req, res) {
   const origin = req.headers.origin || `https://${req.headers.host}`;
 
   const payload = {
-    billingTypes: ["PIX", "CREDIT_CARD"],
+    // RECURRENT só aceita CREDIT_CARD na Asaas (Pix não permite débito automático)
+    billingTypes: ["CREDIT_CARD"],
     chargeTypes: ["RECURRENT"],
     minutesToExpire: 60,
     externalReference: ownerId,
@@ -51,7 +52,7 @@ export default async function handler(req, res) {
       cancelUrl: `${origin}/?checkout=cancel`,
     },
     customerData: { name, email },
-    items: [{ name: "Avence Psi — assinatura do site", quantity: 1, value: planConfig.value }],
+    items: [{ name: "Assinatura Avence Psi", quantity: 1, value: planConfig.value }],
     subscription: { cycle: planConfig.cycle, nextDueDate: new Date(Date.now() + 86400000).toISOString().slice(0, 10) },
   };
 
