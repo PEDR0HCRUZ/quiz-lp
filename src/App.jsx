@@ -821,7 +821,7 @@ export default function App() {
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             <div>
               <div style={{ fontSize: 12, color: C.sub, marginBottom: 6, fontWeight: 500 }}>Seu nome</div>
-              <input value={lead.name} onChange={(e) => setLead({ ...lead, name: e.target.value })} placeholder="Dra. Marina Costa"
+              <input value={lead.name} onChange={(e) => setLead({ ...lead, name: e.target.value })} placeholder="Marina Costa"
                 style={{ width: "100%", padding: "13px 15px", borderRadius: 11, border: `1px solid ${C.line}`, background: "#fff", fontSize: 15, fontFamily: "Inter" }} />
             </div>
             <div>
