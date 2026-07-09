@@ -384,6 +384,17 @@ export default function App() {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [msgs, typing]);
 
+  // textarea da resposta longa ("sobre") cresce junto com o texto até um
+  // teto, em vez de ficar 1 linha só e obrigar a rolar pra ler o que já foi
+  // escrito/inserido (ex: os começos sugeridos, que passam de 250 chars).
+  useEffect(() => {
+    const el = composerRef.current;
+    if (el && el.tagName === "TEXTAREA") {
+      el.style.height = "auto";
+      el.style.height = Math.min(el.scrollHeight, 220) + "px";
+    }
+  }, [draft]);
+
   // bot fala com "digitando"
   const botSay = (text) => {
     setTyping(true);
@@ -1129,12 +1140,20 @@ export default function App() {
                   );
                 })()}
                 <div style={{ display: "flex", gap: 9, alignItems: "flex-end" }}>
-                  <input ref={composerRef} value={draft}
-                    onChange={(e) => setDraft(step?.key === "whatsapp" ? formatPhoneBR(e.target.value) : e.target.value)}
-                    placeholder={step?.ph || "Escreva aqui..."}
-                    inputMode={step?.key === "whatsapp" ? "numeric" : undefined}
-                    onKeyDown={(e) => e.key === "Enter" && submit(draft)}
-                    style={{ flex: 1, minWidth: 0, padding: "12px 15px", borderRadius: 999, border: `1px solid ${C.line}`, background: "#fff", fontSize: 14.5, fontFamily: "Inter" }} />
+                  {step?.key === "sobre" ? (
+                    <textarea ref={composerRef} value={draft} rows={1}
+                      onChange={(e) => setDraft(e.target.value)}
+                      placeholder={step?.ph || "Escreva aqui..."}
+                      onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); submit(draft); } }}
+                      style={{ flex: 1, minWidth: 0, padding: "12px 15px", borderRadius: 18, border: `1px solid ${C.line}`, background: "#fff", fontSize: 14.5, fontFamily: "Inter", resize: "none", maxHeight: 220, overflowY: "auto", lineHeight: 1.5 }} />
+                  ) : (
+                    <input ref={composerRef} value={draft}
+                      onChange={(e) => setDraft(step?.key === "whatsapp" ? formatPhoneBR(e.target.value) : e.target.value)}
+                      placeholder={step?.ph || "Escreva aqui..."}
+                      inputMode={step?.key === "whatsapp" ? "numeric" : undefined}
+                      onKeyDown={(e) => e.key === "Enter" && submit(draft)}
+                      style={{ flex: 1, minWidth: 0, padding: "12px 15px", borderRadius: 999, border: `1px solid ${C.line}`, background: "#fff", fontSize: 14.5, fontFamily: "Inter" }} />
+                  )}
                   <button onClick={() => submit(draft)} aria-label="Enviar"
                     style={{ width: 44, height: 44, flexShrink: 0, borderRadius: 999, border: "none", background: C.dark, color: "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
                     <Send size={17} />
