@@ -79,13 +79,35 @@ const FLOW = [
   { key: "temas", bot: "Quais temas você mais atende? Selecione quantos quiser — e adicione os seus no campo abaixo.", type: "cards",
     options: ["Ansiedade", "Depressão", "Autoestima", "Autoconhecimento", "Relacionamentos", "Luto", "Estresse / Burnout", "Traumas", "Síndrome do pânico", "TOC", "Fobias", "Maternidade / Parentalidade"] },
   { key: "tom", bot: "Que tom combina mais com você?", type: "chips", options: ["Acolhedor", "Leve e próximo", "Direto", "Técnico"] },
-  { key: "sobre", bot: "Me conta em poucas frases o que te move como profissional. Se quiser, use um dos começos abaixo — eu já deixo uma frase pronta que você pode editar.", ph: "escreva do seu jeito...", type: "text",
-    starters: [
-      { label: "Acredito que…", template: "Acredito que cada pessoa carrega dentro de si a capacidade de se reconectar consigo mesma, compreender suas próprias dores com mais clareza e construir, no seu próprio tempo, uma vida com mais leveza, sentido e autonomia emocional para lidar com os desafios do dia a dia." },
-      { label: "O mundo pode ser melhor através da…", template: "O mundo pode ser melhor através da escuta verdadeira, do cuidado genuíno e de relações mais honestas entre as pessoas — por isso acredito tanto no valor da terapia como um espaço de transformação pessoal e coletiva, capaz de gerar mudanças reais na forma como nos relacionamos com nós mesmos e com o outro." },
-      { label: "Meu propósito é…", template: "Meu propósito é acompanhar pessoas em momentos de transformação, oferecendo um espaço seguro, acolhedor e livre de julgamentos para que possam se conhecer melhor, entender seus padrões e desenvolver recursos emocionais mais saudáveis para viver com mais autonomia e bem-estar." },
-      { label: "Escolhi essa profissão porque…", template: "Escolhi essa profissão porque acredito no poder da escuta e no impacto que ela pode ter na vida das pessoas — ao longo da minha trajetória, percebi que oferecer um espaço de cuidado genuíno é capaz de transformar histórias e ajudar cada pessoa a se relacionar de forma mais saudável consigo mesma." },
-    ] },
+  { key: "sobre", bot: "Me conta em poucas frases o que te move como profissional. Se quiser, use um dos começos abaixo — eu já deixo uma frase pronta (no tom que você escolheu) que você pode editar.", ph: "escreva do seu jeito...", type: "text",
+    // uma versão de cada começo por tom (etapa anterior) — pra sugestão
+    // combinar com o jeito que ela disse que queria soar, não só um texto genérico.
+    startersByTone: {
+      "Acolhedor": [
+        { label: "Acredito que…", template: "Acredito que cada pessoa carrega dentro de si a capacidade de se reconectar consigo mesma, compreender suas próprias dores com carinho e construir, no seu tempo, uma vida com mais leveza, sentido e acolhimento para lidar com os desafios do dia a dia." },
+        { label: "O mundo pode ser melhor através da…", template: "O mundo pode ser melhor através da escuta acolhedora, do cuidado genuíno e de relações mais gentis entre as pessoas — por isso acredito tanto no valor da terapia como um espaço seguro de transformação, capaz de gerar mudanças reais na forma como nos relacionamos com nós mesmos e com o outro." },
+        { label: "Meu propósito é…", template: "Meu propósito é acompanhar pessoas em momentos delicados de transformação, oferecendo um colo emocional, um espaço seguro e livre de julgamentos para que possam se conhecer melhor, entender seus padrões e desenvolver recursos mais saudáveis para viver com mais autonomia e bem-estar." },
+        { label: "Escolhi essa profissão porque…", template: "Escolhi essa profissão porque acredito no poder da escuta afetuosa e no impacto que ela pode ter na vida das pessoas — ao longo da minha trajetória, percebi que oferecer um espaço de cuidado genuíno é capaz de transformar histórias e ajudar cada pessoa a se relacionar com mais gentileza consigo mesma." },
+      ],
+      "Leve e próximo": [
+        { label: "Acredito que…", template: "Acredito que a gente não precisa ter tudo resolvido pra merecer um espaço de escuta — cada pessoa tem sua própria bagagem, seu próprio ritmo, e é justamente por isso que gosto tanto de caminhar ao lado de quem topa se olhar com mais gentileza e leveza no dia a dia." },
+        { label: "O mundo pode ser melhor através da…", template: "O mundo pode ser melhor através da conversa sincera, daquele papo que não julga e que ajuda a gente a se entender um pouco mais. É por isso que acredito na terapia como um espaço leve, próximo e sem formalidade, onde dá pra ser você mesma de verdade e ainda assim crescer." },
+        { label: "Meu propósito é…", template: "Meu propósito é estar perto de quem tá passando por uma fase de mudança, sem cobrança e sem julgamento — só presença de verdade. Gosto de pensar a terapia como uma conversa boa, daquelas que ajudam a clarear a cabeça e encontrar um caminho mais leve pra seguir em frente." },
+        { label: "Escolhi essa profissão porque…", template: "Escolhi essa profissão porque sempre gostei de ouvir as pessoas de verdade, sem pressa e sem julgamento. Com o tempo percebi que esse tipo de escuta próxima e sem formalidade pode fazer uma diferença enorme na vida de alguém — e é exatamente isso que quero oferecer." },
+      ],
+      "Direto": [
+        { label: "Acredito que…", template: "Acredito que mudança real exige clareza, compromisso e ação — não só reflexão. Meu trabalho é ajudar você a identificar o que está travando seu progresso, entender os padrões por trás disso e sair da sessão com direções concretas para aplicar no seu dia a dia." },
+        { label: "O mundo pode ser melhor através da…", template: "O mundo pode ser melhor através da terapia orientada a resultados — sem enrolação, sem sessões que não levam a lugar nenhum. Trabalho para que cada encontro tenha um propósito claro e que você saia com ferramentas práticas para lidar com o que precisa ser resolvido." },
+        { label: "Meu propósito é…", template: "Meu propósito é ajudar você a sair do ciclo em que está preso e avançar de forma objetiva. Não acredito em terapia sem direção — cada sessão tem um foco, e o objetivo é sempre te aproximar de mudanças reais e mensuráveis na sua vida, sem enrolação." },
+        { label: "Escolhi essa profissão porque…", template: "Escolhi essa profissão porque quero gerar resultado de verdade na vida das pessoas, não só oferecer um espaço para desabafar. Acredito em terapia com direção clara, metas definidas e progresso que pode ser sentido e percebido ao longo do processo." },
+      ],
+      "Técnico": [
+        { label: "Acredito que…", template: "Acredito que a prática clínica deve ser fundamentada em evidências científicas sólidas, com metodologia clara e acompanhamento sistemático da evolução do paciente. Minha abordagem combina rigor técnico e responsabilidade ética para garantir resultados consistentes e mensuráveis." },
+        { label: "O mundo pode ser melhor através da…", template: "O mundo pode ser melhor através da aplicação criteriosa de métodos terapêuticos validados cientificamente, com protocolos estruturados e avaliação contínua de progresso. Defendo uma prática clínica pautada em evidências, ética profissional e atualização constante do conhecimento técnico." },
+        { label: "Meu propósito é…", template: "Meu propósito é conduzir o processo terapêutico com base em fundamentação técnica sólida, utilizando instrumentos de avaliação adequados e intervenções baseadas em evidências científicas, sempre respeitando as diretrizes éticas da profissão e as particularidades de cada caso clínico." },
+        { label: "Escolhi essa profissão porque…", template: "Escolhi essa profissão porque me interesso profundamente pelos processos cognitivos e comportamentais humanos, e pela possibilidade de aplicar conhecimento científico validado para promover mudanças estruturadas e duradouras na vida dos pacientes, com metodologia clara e mensurável." },
+      ],
+    } },
   { key: "logo", bot: "Você já tem uma logo? Se tiver, me manda o arquivo (de preferência em PNG). Se não tiver, sem problema — seu nome aparece no topo do site.", type: "image" },
   { key: "photo", bot: "Pra deixar o site com a sua cara, envie uma foto profissional. Ela vai aparecer no topo e na seção “sobre”. Pode pular e adicionar depois.", type: "image" },
   { key: "whatsapp", bot: "Quase lá. Qual seu WhatsApp, com DDD?", ph: "51 99999-9999", type: "text" },
@@ -1044,16 +1066,19 @@ export default function App() {
             )}
             {!editingKey && !typing && (step?.type === "text" || step?.allowText) && (
               <div>
-                {step?.starters && (
+                {(() => {
+                  const activeStarters = step?.startersByTone?.[answers.tom] || step?.startersByTone?.["Acolhedor"] || step?.starters;
+                  return activeStarters && (
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 7, marginBottom: 10 }}>
-                    {step.starters.map((s) => (
+                    {activeStarters.map((s) => (
                       <button key={s.label} onClick={() => addStarter(s.template)}
                         style={{ padding: "7px 13px", borderRadius: 999, border: `1px dashed ${C.sage}`, background: C.sageSoft, color: C.sage, fontWeight: 500, fontSize: 13, cursor: "pointer" }}>
                         {s.label}
                       </button>
                     ))}
                   </div>
-                )}
+                  );
+                })()}
                 <div style={{ display: "flex", gap: 9, alignItems: "flex-end" }}>
                   <input ref={composerRef} value={draft}
                     onChange={(e) => setDraft(step?.key === "whatsapp" ? formatPhoneBR(e.target.value) : e.target.value)}
