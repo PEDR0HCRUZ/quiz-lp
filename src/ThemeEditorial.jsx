@@ -1,4 +1,5 @@
 import { ArrowRight, MessageCircle, Instagram, Mail, Check, MapPin } from "lucide-react";
+import { COLOR_SCHEMES, DEFAULT_COLOR_SCHEME, darken } from "./colorSchemes.js";
 
 /* ------------------------------------------------------------------ */
 /*  Tema "Autoral" — editorial quente, terracota sobre marfim.          */
@@ -11,8 +12,6 @@ const T = {
   ink: "#211A15",
   paper: "#FBF5EA",
   panel: "#F4ECDD",
-  rust: "#B5502D",
-  rustDeep: "#8A3A20",
   sand: "#EAD9BE",
   line: "#E2D3B8",
   sub: "#79695A",
@@ -57,7 +56,7 @@ const firstName = (n) => (n || "").trim().split(" ")[0] || "";
 
 const wrap = (extra) => ({ maxWidth: CONTAINER_MAX, margin: "0 auto", padding: `0 ${CONTAINER_PAD}px`, ...extra });
 
-function Ornament({ color = T.rust }) {
+function Ornament({ color }) {
   return (
     <span style={{ display: "inline-flex", alignItems: "center", gap: 8, margin: "0 0 14px" }}>
       <span style={{ width: 22, height: 1, background: color }} />
@@ -67,6 +66,8 @@ function Ornament({ color = T.rust }) {
 }
 
 export function SitePreviewEditorial({ d }) {
+  const { accent, accentSoft } = COLOR_SCHEMES[d.colorScheme] || COLOR_SCHEMES[DEFAULT_COLOR_SCHEME];
+  const accentDeep = darken(accent, 0.22);
   const wa = waLink(d.whatsapp, d.waMessage || `Olá, ${firstName(d.name)}! Tenho interesse em agendar uma consulta.`);
 
   const Btn = ({ children, primary, big }) => (
@@ -74,7 +75,7 @@ export function SitePreviewEditorial({ d }) {
       display: "inline-flex", alignItems: "center", gap: 9,
       padding: big ? "15px 26px" : "12px 21px", borderRadius: 3,
       fontSize: big ? 14.5 : 13, fontWeight: 600, textDecoration: "none", letterSpacing: ".01em",
-      background: primary ? T.rust : "transparent",
+      background: primary ? accent : "transparent",
       color: primary ? T.paper : T.ink,
       border: primary ? "none" : `1px solid ${T.ink}`,
       transition: "transform .2s ease, background .2s ease",
@@ -104,7 +105,7 @@ export function SitePreviewEditorial({ d }) {
       {/* hero */}
       <div className="ed-hero-grid" style={wrap({ padding: `72px ${CONTAINER_PAD}px 64px` })}>
         <div className="ed-fade">
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 7, fontSize: 11, fontWeight: 600, letterSpacing: ".08em", textTransform: "uppercase", color: T.rustDeep, background: T.sand, padding: "6px 13px", borderRadius: 2 }}>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 7, fontSize: 11, fontWeight: 600, letterSpacing: ".08em", textTransform: "uppercase", color: accentDeep, background: accentSoft, padding: "6px 13px", borderRadius: 2 }}>
             {d.badge}
           </span>
           <h1 className="ed-serif" style={{ fontStyle: "italic", fontWeight: 400, fontSize: "clamp(34px, 4.6vw, 54px)", lineHeight: 1.04, margin: "22px 0 16px", letterSpacing: "-.01em" }}>
@@ -117,11 +118,11 @@ export function SitePreviewEditorial({ d }) {
           </div>
         </div>
         <div className="ed-hero-photo ed-fade" style={{ position: "relative", animationDelay: ".15s" }}>
-          <div style={{ position: "absolute", inset: 0, transform: "translate(14px, 14px)", background: T.rust, borderRadius: 2 }} />
-          <div style={{ position: "relative", aspectRatio: "3/4", borderRadius: 2, overflow: "hidden", border: `1px solid ${T.ink}`, background: T.sand, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div style={{ position: "absolute", inset: 0, transform: "translate(14px, 14px)", background: accent, borderRadius: 2 }} />
+          <div style={{ position: "relative", aspectRatio: "3/4", borderRadius: 2, overflow: "hidden", border: `1px solid ${T.ink}`, background: accentSoft, display: "flex", alignItems: "center", justifyContent: "center" }}>
             {d.photo
               ? <img src={d.photo} alt={d.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-              : <span className="ed-serif" style={{ fontStyle: "italic", fontSize: 50, color: T.rustDeep, opacity: .6 }}>{initials(d.name)}</span>}
+              : <span className="ed-serif" style={{ fontStyle: "italic", fontSize: 50, color: accentDeep, opacity: .6 }}>{initials(d.name)}</span>}
           </div>
         </div>
       </div>
@@ -129,12 +130,12 @@ export function SitePreviewEditorial({ d }) {
       {/* especialidades */}
       <div style={{ background: T.panel, borderTop: `1px solid ${T.line}`, borderBottom: `1px solid ${T.line}` }}>
         <div style={wrap({ padding: `56px ${CONTAINER_PAD}px` })}>
-          <Ornament />
+          <Ornament color={accent} />
           <h2 className="ed-serif" style={{ fontStyle: "italic", fontWeight: 400, fontSize: 32, margin: "0 0 28px" }}>Especialidades clínicas</h2>
           <div className="ed-spec-grid">
             {d.specialties.map((s, i) => (
               <div key={i} style={{ position: "relative", overflow: "hidden", background: T.paper, border: `1px solid ${T.line}`, borderRadius: 3, padding: "26px 20px 20px" }}>
-                <span className="ed-serif" style={{ position: "absolute", top: -10, right: 6, fontStyle: "italic", fontSize: 68, color: T.rust, opacity: .13, lineHeight: 1, userSelect: "none" }}>
+                <span className="ed-serif" style={{ position: "absolute", top: -10, right: 6, fontStyle: "italic", fontSize: 68, color: accent, opacity: .13, lineHeight: 1, userSelect: "none" }}>
                   {String(i + 1).padStart(2, "0")}
                 </span>
                 <h3 style={{ fontSize: 16, fontWeight: 700, margin: "0 0 8px", position: "relative" }}>{s.t}</h3>
@@ -152,11 +153,11 @@ export function SitePreviewEditorial({ d }) {
           <div style={{ position: "relative", aspectRatio: "1/1", borderRadius: 2, border: `1px solid ${T.ink}`, background: `linear-gradient(160deg, ${T.panel}, ${T.sand})` }} />
         </div>
         <div>
-          <Ornament />
+          <Ornament color={accent} />
           <h2 className="ed-serif" style={{ fontStyle: "italic", fontWeight: 400, fontSize: 28, margin: "0 0 20px" }}>Por que esse atendimento?</h2>
           {d.benefits.map((b, i) => (
             <div key={i} style={{ display: "flex", gap: 12, marginBottom: 14 }}>
-              <span style={{ marginTop: 2, flexShrink: 0, width: 20, height: 20, borderRadius: 99, background: T.rust, display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <span style={{ marginTop: 2, flexShrink: 0, width: 20, height: 20, borderRadius: 99, background: accent, display: "flex", alignItems: "center", justifyContent: "center" }}>
                 <Check size={12} color={T.paper} />
               </span>
               <p style={{ margin: 0, fontSize: 14 }}><b>{b.t}</b> — <span style={{ color: T.sub }}>{b.d}</span></p>
@@ -184,11 +185,11 @@ export function SitePreviewEditorial({ d }) {
           <div style={{ position: "relative", aspectRatio: "4/5", borderRadius: 2, overflow: "hidden", border: `1px solid ${T.ink}`, background: T.panel, display: "flex", alignItems: "center", justifyContent: "center" }}>
             {d.photo
               ? <img src={d.photo} alt={d.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-              : <span className="ed-serif" style={{ fontStyle: "italic", fontSize: 44, color: T.rustDeep, opacity: .5 }}>{initials(d.name)}</span>}
+              : <span className="ed-serif" style={{ fontStyle: "italic", fontSize: 44, color: accentDeep, opacity: .5 }}>{initials(d.name)}</span>}
           </div>
         </div>
         <div>
-          <Ornament />
+          <Ornament color={accent} />
           <h2 className="ed-serif" style={{ fontStyle: "italic", fontWeight: 400, fontSize: 28, margin: "0 0 16px" }}>Uma escuta clínica e humana.</h2>
           <p style={{ color: T.sub, fontSize: 14.5, marginBottom: 22 }}>{d.bio}</p>
           <Btn primary><MessageCircle size={14} /> Agende uma consulta</Btn>
@@ -198,12 +199,12 @@ export function SitePreviewEditorial({ d }) {
       {/* faq */}
       <div style={{ background: T.panel, borderTop: `1px solid ${T.line}` }}>
         <div style={wrap({ padding: `56px ${CONTAINER_PAD}px`, maxWidth: READ_MAX + CONTAINER_PAD * 2 })}>
-          <Ornament />
+          <Ornament color={accent} />
           <h2 className="ed-serif" style={{ fontStyle: "italic", fontWeight: 400, fontSize: 28, margin: "0 0 20px" }}>Perguntas frequentes</h2>
           {d.faq.map((f, i) => (
             <details key={i} style={{ borderTop: `1px solid ${T.line}`, padding: "16px 0" }} open={i === 0}>
               <summary style={{ cursor: "pointer", fontWeight: 600, fontSize: 14.5, listStyle: "none", display: "flex", gap: 12 }}>
-                <span className="ed-serif" style={{ fontStyle: "italic", color: T.rust }}>{String(i + 1).padStart(2, "0")}</span>{f.q}
+                <span className="ed-serif" style={{ fontStyle: "italic", color: accent }}>{String(i + 1).padStart(2, "0")}</span>{f.q}
               </summary>
               <p style={{ margin: "10px 0 0 30px", color: T.sub, fontSize: 13.5 }}>{f.a}</p>
             </details>
@@ -213,11 +214,11 @@ export function SitePreviewEditorial({ d }) {
 
       {/* cta final */}
       <div style={wrap({ padding: `60px ${CONTAINER_PAD}px` })}>
-        <div style={{ background: T.rust, borderRadius: 4, padding: "44px 32px", color: T.paper, textAlign: "center", position: "relative", overflow: "hidden" }}>
+        <div style={{ background: accent, borderRadius: 4, padding: "44px 32px", color: T.paper, textAlign: "center", position: "relative", overflow: "hidden" }}>
           <span className="ed-serif" style={{ position: "absolute", top: -30, left: -10, fontStyle: "italic", fontSize: 160, opacity: .12, lineHeight: 1 }}>”</span>
           <h3 className="ed-serif" style={{ fontStyle: "italic", fontWeight: 400, fontSize: 30, margin: "0 0 10px", position: "relative" }}>Vamos dar o primeiro passo?</h3>
           <p style={{ color: "#F3D9CB", fontSize: 14, margin: "0 0 22px", position: "relative" }}>Agende uma conversa inicial agora mesmo.</p>
-          <a href={wa} target="_blank" rel="noreferrer" style={{ position: "relative", display: "inline-flex", alignItems: "center", gap: 9, padding: "14px 26px", borderRadius: 3, background: T.paper, color: T.rustDeep, fontWeight: 700, fontSize: 14, textDecoration: "none" }}>
+          <a href={wa} target="_blank" rel="noreferrer" style={{ position: "relative", display: "inline-flex", alignItems: "center", gap: 9, padding: "14px 26px", borderRadius: 3, background: T.paper, color: accentDeep, fontWeight: 700, fontSize: 14, textDecoration: "none" }}>
             <MessageCircle size={16} /> Falar no WhatsApp
           </a>
         </div>

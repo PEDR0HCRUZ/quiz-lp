@@ -6,6 +6,7 @@ import {
 import { supabase } from "./lib/supabase.js";
 import { slugify, withSuffix } from "./lib/slug.js";
 import { SitePreviewEditorial } from "./ThemeEditorial.jsx";
+import { COLOR_SCHEMES, DEFAULT_COLOR_SCHEME } from "./colorSchemes.js";
 
 /* ------------------------------------------------------------------ */
 /*  Avence Psi — v2: onboarding conversacional + login por magic link   */
@@ -80,6 +81,7 @@ const FLOW = [
   { key: "abordagem", bot: "Qual é a sua abordagem principal?", type: "chips", options: ["TCC", "Psicanálise", "Humanista", "Gestalt"], allowText: true, ph: "Outra..." },
   { key: "temas", bot: "Quais temas você mais atende? Selecione quantos quiser — e adicione os seus no campo abaixo.", type: "cards",
     options: ["Ansiedade", "Depressão", "Autoestima", "Autoconhecimento", "Relacionamentos", "Luto", "Estresse / Burnout", "Traumas", "Síndrome do pânico", "TOC", "Fobias", "Maternidade / Parentalidade"] },
+  { key: "colorScheme", bot: "Vamos escolher a paleta de cores do site. Dá pra trocar depois.", type: "colors", options: Object.keys(COLOR_SCHEMES) },
   { key: "tom", bot: "Que tom combina mais com você?", type: "chips", options: ["Acolhedor", "Leve e próximo", "Direto", "Técnico"] },
   { key: "sobre", bot: "Me conta em poucas frases o que te move como profissional. Se quiser, use um dos começos abaixo — eu já deixo uma frase pronta (no tom que você escolheu) que você pode editar.", ph: "escreva do seu jeito...", type: "text",
     // uma versão de cada começo por tom (etapa anterior) — pra sugestão
@@ -157,12 +159,13 @@ function buildCopy(input) {
 
 /* =========================== SITE PREVIEW ========================== */
 function SitePreview({ d }) {
+  const { accent, accentSoft } = COLOR_SCHEMES[d.colorScheme] || COLOR_SCHEMES[DEFAULT_COLOR_SCHEME];
   const wa = waLink(d.whatsapp, d.waMessage || `Olá, ${firstName(d.name)}! Tenho interesse em agendar uma consulta.`);
   const Btn = ({ children, primary }) => (
     <a href={wa} target="_blank" rel="noreferrer" style={{
       display: "inline-flex", alignItems: "center", gap: 8, padding: "11px 19px", borderRadius: 999,
       fontSize: 13, fontWeight: 600, textDecoration: "none",
-      background: primary ? C.sage : "transparent", color: primary ? "#fff" : C.ink,
+      background: primary ? accent : "transparent", color: primary ? "#fff" : C.ink,
       border: primary ? "none" : `1px solid ${C.line}`,
     }}>{children}</a>
   );
@@ -182,28 +185,28 @@ function SitePreview({ d }) {
       {/* hero */}
       <div className="hero-grid" style={wrap({ padding: `46px ${CONTAINER_PAD}px 40px`, gap: 28, alignItems: "center" })}>
         <div>
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11, fontWeight: 600, color: C.sage, background: C.sageSoft, padding: "5px 11px", borderRadius: 999 }}>
-            <span style={{ width: 6, height: 6, borderRadius: 99, background: C.sage }} />{d.badge}
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11, fontWeight: 600, color: accent, background: accentSoft, padding: "5px 11px", borderRadius: 999 }}>
+            <span style={{ width: 6, height: 6, borderRadius: 99, background: accent }} />{d.badge}
           </span>
           <h1 style={{ fontFamily: "Fraunces, serif", fontWeight: 600, fontSize: 34, lineHeight: 1.08, margin: "16px 0 12px", letterSpacing: "-.01em" }}>{d.headline}</h1>
           <p style={{ color: C.sub, maxWidth: 380, margin: "0 0 22px" }}>{d.subheadline}</p>
           <div style={{ display: "flex", gap: 10 }}><Btn primary>Iniciar jornada <ArrowRight size={14} /></Btn><Btn>Saiba mais</Btn></div>
         </div>
-        <div style={{ aspectRatio: "3/4", borderRadius: 16, overflow: "hidden", background: `linear-gradient(160deg, ${C.sageSoft}, #E8E4DA)`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div style={{ aspectRatio: "3/4", borderRadius: 16, overflow: "hidden", background: `linear-gradient(160deg, ${accentSoft}, #E8E4DA)`, display: "flex", alignItems: "center", justifyContent: "center" }}>
           {d.photo
             ? <img src={d.photo} alt={d.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-            : <span style={{ fontFamily: "Fraunces, serif", fontSize: 46, color: C.sage, opacity: .55 }}>{initials(d.name)}</span>}
+            : <span style={{ fontFamily: "Fraunces, serif", fontSize: 46, color: accent, opacity: .55 }}>{initials(d.name)}</span>}
         </div>
       </div>
       {/* especialidades */}
       <div style={{ background: C.panel }}>
         <div style={wrap({ padding: `40px ${CONTAINER_PAD}px` })}>
-          <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".12em", textTransform: "uppercase", color: C.sage, margin: 0 }}>Foco em resultados</p>
+          <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".12em", textTransform: "uppercase", color: accent, margin: 0 }}>Foco em resultados</p>
           <h2 style={{ fontFamily: "Fraunces, serif", fontSize: 26, fontWeight: 600, margin: "8px 0 22px" }}>Especialidades clínicas</h2>
           <div className="spec-grid" style={{ gap: 14 }}>
             {d.specialties.map((s, i) => (
               <div key={i} style={{ background: "#fff", border: `1px solid ${C.line}`, borderRadius: 12, padding: "16px" }}>
-                <span style={{ fontFamily: "Fraunces, serif", fontSize: 13, color: C.sage }}>{String(i + 1).padStart(2, "0")}</span>
+                <span style={{ fontFamily: "Fraunces, serif", fontSize: 13, color: accent }}>{String(i + 1).padStart(2, "0")}</span>
                 <h3 style={{ fontSize: 15, fontWeight: 600, margin: "6px 0" }}>{s.t}</h3>
                 <p style={{ fontSize: 12.5, color: C.sub, margin: 0, lineHeight: 1.5 }}>{s.d}</p>
               </div>
@@ -224,15 +227,15 @@ function SitePreview({ d }) {
       {/* sobre */}
       <div className="sobre-grid" style={wrap({ padding: `40px ${CONTAINER_PAD}px`, gap: 26, alignItems: "center" })}>
         <div>
-          <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".12em", textTransform: "uppercase", color: C.sage, margin: 0 }}>Quem sou eu</p>
+          <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".12em", textTransform: "uppercase", color: accent, margin: 0 }}>Quem sou eu</p>
           <h2 style={{ fontFamily: "Fraunces, serif", fontSize: 24, fontWeight: 600, margin: "8px 0 14px" }}>Uma escuta clínica e humana.</h2>
           <p style={{ color: C.sub, fontSize: 13.5, marginBottom: 18 }}>{d.bio}</p>
           <Btn primary><MessageCircle size={14} /> Agende uma consulta</Btn>
         </div>
-        <div style={{ aspectRatio: "4/5", borderRadius: 16, overflow: "hidden", background: `linear-gradient(160deg, ${C.sageSoft}, #E8E4DA)`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div style={{ aspectRatio: "4/5", borderRadius: 16, overflow: "hidden", background: `linear-gradient(160deg, ${accentSoft}, #E8E4DA)`, display: "flex", alignItems: "center", justifyContent: "center" }}>
           {d.photo
             ? <img src={d.photo} alt={d.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-            : <span style={{ fontFamily: "Fraunces, serif", fontSize: 40, color: C.sage, opacity: .5 }}>{initials(d.name)}</span>}
+            : <span style={{ fontFamily: "Fraunces, serif", fontSize: 40, color: accent, opacity: .5 }}>{initials(d.name)}</span>}
         </div>
       </div>
       {/* faq */}
@@ -785,6 +788,7 @@ export default function App() {
         endereco: all.endereco || "",
         waMessage: `Olá! Vi seu site e tenho interesse em agendar uma consulta.`,
         theme: "classic",
+        colorScheme: all.colorScheme || DEFAULT_COLOR_SCHEME,
       };
       setSite(siteObj);
       setPhase("site");
@@ -958,6 +962,21 @@ export default function App() {
                 {(editingFlowStep || step).options.map((o) => (
                   <button key={o} onClick={() => chooseChip(o)}
                     style={{ padding: "9px 15px", borderRadius: 999, border: `1px solid ${C.sage}`, background: C.sageSoft, color: C.sage, fontWeight: 600, fontSize: 13.5, cursor: "pointer" }}>{o}</button>
+                ))}
+              </div>
+            )}
+            {!typing && activeType === "colors" && (
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 8, marginBottom: 4 }}>
+                {(editingFlowStep || step).options.map((o) => (
+                  <button key={o} onClick={() => chooseChip(o)}
+                    style={{ display: "flex", flexDirection: "column", gap: 8, padding: "10px 12px", borderRadius: 12, border: `1px solid ${C.line}`, background: "#fff", cursor: "pointer", textAlign: "left" }}>
+                    <div style={{ display: "flex", borderRadius: 7, overflow: "hidden", height: 22 }}>
+                      {COLOR_SCHEMES[o].swatches.map((sw, i) => (
+                        <div key={i} style={{ flex: 1, background: sw }} />
+                      ))}
+                    </div>
+                    <span style={{ fontSize: 12.5, fontWeight: 600, color: C.ink }}>{o}</span>
+                  </button>
                 ))}
               </div>
             )}
