@@ -51,18 +51,23 @@ export default async function handler(req, res) {
   else if (OVERDUE_EVENTS.includes(event)) statusUpdate = "overdue";
   else if (CANCELLED_EVENTS.includes(event)) statusUpdate = "cancelled";
 
-  console.log("[asaas-webhook] statusUpdate:", statusUpdate);
-  if (!statusUpdate) {
+  console.log("[asaas-webhook] statusUpdate:", statusUpdate, "subId:", subId);
+
+  // mesmo em eventos que não ativam nada (ex: PAYMENT_CREATED), grava o
+  // asaas_subscription_id assim que ele aparecer — eventos futuros (tipo
+  // SUBSCRIPTION_CREATED) chegam só com o id da assinatura, sem
+  // checkoutSession, e dependem desse backfill pra conseguir correlacionar.
+  if (!subId && !statusUpdate) {
     res.status(200).json({ ok: true, skipped: true });
     return;
   }
 
-  const { error } = await supabase.from("subscriptions").upsert({
-    owner_id: ownerId,
-    status: statusUpdate,
-    asaas_subscription_id: subId,
-    current_period_end: payment?.dueDate || null,
-  });
+  const payload = { owner_id: ownerId };
+  if (subId) payload.asaas_subscription_id = subId;
+  if (statusUpdate) payload.status = statusUpdate;
+  if (payment?.dueDate) payload.current_period_end = payment.dueDate;
+
+  const { error } = await supabase.from("subscriptions").upsert(payload);
 
   if (error) {
     res.status(500).json({ error: error.message });
