@@ -20,7 +20,6 @@ export default async function handler(req, res) {
 
   const { event, payment, subscription } = req.body || {};
   const supabase = createClient(process.env.VITE_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE);
-  console.log("[asaas-webhook] event:", event, "payment.subscription:", payment?.subscription, "payment.checkoutSession:", payment?.checkoutSession, "subscription?.id:", subscription?.id);
 
   // o externalReference não propaga do checkout pro payment/subscription na
   // Asaas, então correlacionamos pelo que a gente mesmo salvou em
@@ -39,7 +38,6 @@ export default async function handler(req, res) {
     const { data } = await supabase.from("subscriptions").select("owner_id").eq("asaas_checkout_id", checkoutId).maybeSingle();
     ownerId = data?.owner_id || null;
   }
-  console.log("[asaas-webhook] ownerId encontrado:", ownerId);
   if (!ownerId) {
     // não achamos correlação nenhuma — ignora sem erro (ex: evento de conta, ou checkout de outro teste)
     res.status(200).json({ ok: true, skipped: true });
@@ -50,8 +48,6 @@ export default async function handler(req, res) {
   if (ACTIVE_EVENTS.includes(event)) statusUpdate = "active";
   else if (OVERDUE_EVENTS.includes(event)) statusUpdate = "overdue";
   else if (CANCELLED_EVENTS.includes(event)) statusUpdate = "cancelled";
-
-  console.log("[asaas-webhook] statusUpdate:", statusUpdate, "subId:", subId);
 
   // mesmo em eventos que não ativam nada (ex: PAYMENT_CREATED), grava o
   // asaas_subscription_id assim que ele aparecer — eventos futuros (tipo
