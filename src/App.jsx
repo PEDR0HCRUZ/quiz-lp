@@ -409,6 +409,28 @@ export default function App() {
     botSay(FLOW[0].bot.replace("{first}", firstName(lead.name)));
   };
 
+  // grava (ou atualiza) a linha em sites com o status pedido. Usado tanto
+  // pra salvar rascunho (assim que o site é gerado, antes de qualquer
+  // pagamento — evita perder tudo se ela sair pro checkout e voltar) quanto
+  // pra publicar de verdade.
+  const saveSite = async (status, siteData, answersData) => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return null;
+    const ownerId = session.user.id;
+    const { data: existing } = await supabase.from("sites").select("id, slug").eq("owner_id", ownerId).maybeSingle();
+    const baseSlug = slugify(lead.name);
+    for (let n = 1; n <= 20; n++) {
+      const slug = existing?.slug || withSuffix(baseSlug, n);
+      const payload = { owner_id: ownerId, slug, status, data: siteData, answers: answersData };
+      const { error } = existing
+        ? await supabase.from("sites").update(payload).eq("id", existing.id)
+        : await supabase.from("sites").insert(payload);
+      if (!error) return slug;
+      if (existing || error.code !== "23505") return null; // só tenta de novo se foi conflito de slug numa criação nova
+    }
+    return null;
+  };
+
   const publishSite = async () => {
     setPublishing(true);
     setAuthError("");
@@ -423,33 +445,18 @@ export default function App() {
 
     const { data: sub } = await supabase.from("subscriptions").select("status").eq("owner_id", ownerId).maybeSingle();
     if (sub?.status !== "active") {
+      await saveSite("draft", site, answers); // garante que o rascunho está salvo antes de ir pro checkout
       setPublishing(false);
       setShowPlanPicker(true);
       return;
     }
 
-    const { data: existing } = await supabase.from("sites").select("id, slug").eq("owner_id", ownerId).maybeSingle();
-
-    const baseSlug = slugify(lead.name);
-    let lastError = null;
-    for (let n = 1; n <= 20; n++) {
-      const slug = existing?.slug || withSuffix(baseSlug, n);
-      const payload = { owner_id: ownerId, slug, status: "published", data: site, answers };
-      const { error } = existing
-        ? await supabase.from("sites").update(payload).eq("id", existing.id)
-        : await supabase.from("sites").insert(payload);
-      if (!error) {
-        setSiteSlug(slug);
-        setSiteStatus("published");
-        setPublishedUrl(`${window.location.origin}/${slug}`);
-        setPublishing(false);
-        return;
-      }
-      lastError = error;
-      if (existing || error.code !== "23505") break; // só tenta de novo se foi conflito de slug numa criação nova
-    }
+    const slug = await saveSite("published", site, answers);
     setPublishing(false);
-    setAuthError(lastError?.message || "Erro ao publicar.");
+    if (!slug) { setAuthError("Erro ao publicar."); return; }
+    setSiteSlug(slug);
+    setSiteStatus("published");
+    setPublishedUrl(`${window.location.origin}/${slug}`);
   };
 
   const startCheckout = async (plan) => {
@@ -684,7 +691,7 @@ export default function App() {
         ? `O que é a ${all.abordagem}?`
         : (copy.methodTitle || "Sobre a abordagem");
 
-      setSite({
+      const siteObj = {
         ...copy,
         specialties: finalSpecialties,
         badge,
@@ -693,8 +700,12 @@ export default function App() {
         modalidade: all.modalidade, whatsapp: all.whatsapp, instagram: all.instagram,
         photo: all.photo || "",
         waMessage: `Olá! Vi seu site e tenho interesse em agendar uma consulta.`,
-      });
+      };
+      setSite(siteObj);
       setPhase("site");
+      // salva como rascunho assim que o site é gerado — se ela sair (ex: pro
+      // checkout) e voltar, o hydrate() consegue restaurar isso.
+      saveSite("draft", siteObj, all).then((slug) => { if (slug) setSiteSlug(slug); });
     }, GEN_STATUS.length * 450 + 300);
   };
 
