@@ -19,14 +19,30 @@ export default async function handler(req, res) {
   }
 
   const { event, payment, subscription } = req.body || {};
-  const externalReference = payment?.externalReference || subscription?.externalReference;
-  if (!externalReference) {
-    // evento sem referência pra correlacionar (ex: eventos de conta) — ignora sem erro
+  const supabase = createClient(process.env.VITE_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE);
+
+  // o externalReference não propaga do checkout pro payment/subscription na
+  // Asaas, então correlacionamos pelo que a gente mesmo salvou em
+  // api/checkout.js: primeiro pelo asaas_subscription_id (cobranças
+  // seguintes, já sabemos qual assinatura é), senão pelo asaas_checkout_id
+  // (primeiro pagamento, ainda não tínhamos o id da assinatura).
+  const subId = payment?.subscription || subscription?.id || null;
+  const checkoutId = payment?.checkoutSession || null;
+
+  let ownerId = null;
+  if (subId) {
+    const { data } = await supabase.from("subscriptions").select("owner_id").eq("asaas_subscription_id", subId).maybeSingle();
+    ownerId = data?.owner_id || null;
+  }
+  if (!ownerId && checkoutId) {
+    const { data } = await supabase.from("subscriptions").select("owner_id").eq("asaas_checkout_id", checkoutId).maybeSingle();
+    ownerId = data?.owner_id || null;
+  }
+  if (!ownerId) {
+    // não achamos correlação nenhuma — ignora sem erro (ex: evento de conta, ou checkout de outro teste)
     res.status(200).json({ ok: true, skipped: true });
     return;
   }
-
-  const supabase = createClient(process.env.VITE_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE);
 
   let statusUpdate = null;
   if (ACTIVE_EVENTS.includes(event)) statusUpdate = "active";
@@ -39,9 +55,9 @@ export default async function handler(req, res) {
   }
 
   const { error } = await supabase.from("subscriptions").upsert({
-    owner_id: externalReference,
+    owner_id: ownerId,
     status: statusUpdate,
-    asaas_subscription_id: payment?.subscription || subscription?.id || null,
+    asaas_subscription_id: subId,
     current_period_end: payment?.dueDate || null,
   });
 

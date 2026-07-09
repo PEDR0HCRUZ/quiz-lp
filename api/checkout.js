@@ -31,13 +31,18 @@ export default async function handler(req, res) {
     return;
   }
 
-  const supabase = createClient(process.env.VITE_SUPABASE_URL, process.env.VITE_SUPABASE_ANON_KEY);
-  const { data: userData, error: userError } = await supabase.auth.getUser(token);
+  // client anon só pra validar o JWT de quem chamou
+  const authClient = createClient(process.env.VITE_SUPABASE_URL, process.env.VITE_SUPABASE_ANON_KEY);
+  const { data: userData, error: userError } = await authClient.auth.getUser(token);
   if (userError || !userData?.user) {
     res.status(401).json({ error: "Sessão inválida" });
     return;
   }
   const ownerId = userData.user.id;
+
+  // client com service role pra gravar a correlação checkout → owner
+  // (a tabela subscriptions só aceita escrita via service role)
+  const supabase = createClient(process.env.VITE_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE);
 
   const origin = req.headers.origin || `https://${req.headers.host}`;
 
@@ -74,5 +79,16 @@ export default async function handler(req, res) {
   }
 
   const data = await asaasRes.json();
-  res.status(200).json({ url: data.link || data.url });
+  const url = data.link || data.url;
+  // o externalReference não propaga do checkout pro payment gerado na Asaas,
+  // então guardamos a correlação checkout → owner no nosso próprio banco.
+  const checkoutId = data.id || url?.split("/").filter(Boolean).pop();
+  await supabase.from("subscriptions").upsert({
+    owner_id: ownerId,
+    plan,
+    asaas_checkout_id: checkoutId,
+    status: "inactive",
+  });
+
+  res.status(200).json({ url });
 }
