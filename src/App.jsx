@@ -5,6 +5,7 @@ import {
 } from "lucide-react";
 import { supabase } from "./lib/supabase.js";
 import { slugify, withSuffix } from "./lib/slug.js";
+import { SitePreviewEditorial } from "./ThemeEditorial.jsx";
 
 /* ------------------------------------------------------------------ */
 /*  Avence Psi — v2: onboarding conversacional + login por magic link   */
@@ -236,6 +237,13 @@ function SitePreview({ d }) {
   );
 }
 
+/* escolhe o tema pra renderizar sem alterar SitePreview (tema clássico) */
+const THEMES = { classic: "Clássico", editorial: "Autoral" };
+function ThemedSite({ d }) {
+  if (d?.theme === "editorial") return <SitePreviewEditorial d={d} />;
+  return <SitePreview d={d} />;
+}
+
 /* --------- Shell e Brand em escopo de módulo (estáveis) ---------- */
 /* Definir estes DENTRO do App faz o React remontar tudo a cada tecla, */
 /* o que fazia o input perder o foco. Fora do App, a identidade é fixa. */
@@ -407,6 +415,12 @@ export default function App() {
     setSiteSlug(null); setSiteStatus("draft"); setPublishedUrl(null);
     setPhase("chat");
     botSay(FLOW[0].bot.replace("{first}", firstName(lead.name)));
+  };
+
+  const changeTheme = (theme) => {
+    const updated = { ...site, theme };
+    setSite(updated);
+    saveSite(siteStatus, updated, answers);
   };
 
   // grava (ou atualiza) a linha em sites com o status pedido. Usado tanto
@@ -700,6 +714,7 @@ export default function App() {
         modalidade: all.modalidade, whatsapp: all.whatsapp, instagram: all.instagram,
         photo: all.photo || "",
         waMessage: `Olá! Vi seu site e tenho interesse em agendar uma consulta.`,
+        theme: "classic",
       };
       setSite(siteObj);
       setPhase("site");
@@ -741,7 +756,7 @@ export default function App() {
         </div>
       );
     }
-    return <div style={{ background: "#fff" }}>{fontStyle}<SitePreview d={publicSite} /></div>;
+    return <div style={{ background: "#fff" }}>{fontStyle}<ThemedSite d={publicSite} /></div>;
   }
 
   /* ---- LOADING inicial (checando sessão) ---- */
@@ -1101,6 +1116,20 @@ export default function App() {
             </button>
           </div>
         </div>
+        <div className="fade" style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
+          <span style={{ fontSize: 12.5, color: C.sub, fontWeight: 500 }}>Tema:</span>
+          {Object.entries(THEMES).map(([key, label]) => (
+            <button key={key} onClick={() => changeTheme(key)}
+              style={{
+                padding: "6px 14px", borderRadius: 999, fontSize: 12.5, fontWeight: 600, cursor: "pointer",
+                border: `1px solid ${(site?.theme || "classic") === key ? C.dark : C.line}`,
+                background: (site?.theme || "classic") === key ? C.dark : "#fff",
+                color: (site?.theme || "classic") === key ? "#fff" : C.ink,
+              }}>
+              {label}
+            </button>
+          ))}
+        </div>
         {showPlanPicker && (
           <div className="fade" style={{ marginBottom: 16, padding: 18, borderRadius: 14, background: C.sageSoft, border: `1px solid ${C.line}` }}>
             <p style={{ margin: "0 0 4px", fontSize: 14.5, fontWeight: 600 }}>Escolha um plano pra publicar</p>
@@ -1134,7 +1163,7 @@ export default function App() {
           </div>
         )}
         <div className="prev fade" style={{ borderRadius: 18, border: `1px solid ${C.line}`, overflow: "auto", maxHeight: "calc(100vh - 120px)", background: "#fff", boxShadow: "0 24px 60px -36px rgba(0,0,0,.3)" }}>
-          <SitePreview d={site} />
+          <ThemedSite d={site} />
         </div>
       </div>
     </div>
