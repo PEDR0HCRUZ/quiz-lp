@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import {
   ArrowRight, Send, MessageCircle, Instagram, Mail, Check,
-  Sparkles, Loader2, Pencil, X, Plus, Image as ImageIcon,
+  Sparkles, Loader2, Pencil, X, Plus, Image as ImageIcon, MapPin,
 } from "lucide-react";
 import { supabase } from "./lib/supabase.js";
 import { slugify, withSuffix } from "./lib/slug.js";
@@ -75,6 +75,8 @@ const FLOW = [
   { key: "specialty", bot: "Prazer, {first}! 🌱 Qual é a sua especialidade?", type: "specialty" },
   { key: "crp", bot: "E o seu registro profissional?", type: "crp" },
   { key: "modalidade", bot: "E você atende de que forma?", type: "chips", options: ["100% Online", "Presencial", "Híbrido"] },
+  { key: "endereco", bot: "Qual o endereço do consultório? Vai aparecer no rodapé do site, com um mapa.", ph: "Rua, número, bairro, cidade - UF", type: "text",
+    skipIf: (a) => a.modalidade === "100% Online" },
   { key: "abordagem", bot: "Qual é a sua abordagem principal?", type: "chips", options: ["TCC", "Psicanálise", "Humanista", "Gestalt"], allowText: true, ph: "Outra..." },
   { key: "temas", bot: "Quais temas você mais atende? Selecione quantos quiser — e adicione os seus no campo abaixo.", type: "cards",
     options: ["Ansiedade", "Depressão", "Autoestima", "Autoconhecimento", "Relacionamentos", "Luto", "Estresse / Burnout", "Traumas", "Síndrome do pânico", "TOC", "Fobias", "Maternidade / Parentalidade"] },
@@ -252,6 +254,16 @@ function SitePreview({ d }) {
       </div>
       {/* footer */}
       <div style={{ borderTop: `1px solid ${C.line}`, background: C.panel }}>
+        {d.endereco && (
+          <div style={wrap({ padding: `26px ${CONTAINER_PAD}px 0` })}>
+            <iframe title="Localização do consultório" loading="lazy"
+              src={`https://www.google.com/maps?q=${encodeURIComponent(d.endereco)}&output=embed`}
+              style={{ width: "100%", height: 200, border: 0, borderRadius: 12, display: "block" }} />
+            <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: C.sub, marginTop: 10 }}>
+              <MapPin size={13} />{d.endereco}
+            </div>
+          </div>
+        )}
         <div style={wrap({ padding: `26px ${CONTAINER_PAD}px`, display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 14 })}>
           <div>
             <div style={{ fontFamily: "Fraunces, serif", fontWeight: 600, fontSize: 15 }}>{d.name}</div>
@@ -540,7 +552,8 @@ export default function App() {
   }, [phase]);
 
   const advance = (merged) => {
-    const nextIdx = stepIdx + 1;
+    let nextIdx = stepIdx + 1;
+    while (nextIdx < FLOW.length && FLOW[nextIdx].skipIf && FLOW[nextIdx].skipIf(merged)) nextIdx++;
     if (nextIdx < FLOW.length) {
       setStepIdx(nextIdx);
       botSay(FLOW[nextIdx].bot.replace("{first}", firstName(lead.name)));
@@ -754,6 +767,7 @@ export default function App() {
         modalidade: all.modalidade, whatsapp: all.whatsapp, instagram: all.instagram,
         photo: all.photo || "",
         logo: all.logo || "",
+        endereco: all.endereco || "",
         waMessage: `Olá! Vi seu site e tenho interesse em agendar uma consulta.`,
         theme: "classic",
       };
@@ -1052,8 +1066,9 @@ export default function App() {
                   <input value={cardCustom} onChange={(e) => setCardCustom(e.target.value)} placeholder="Adicionar outro tema..."
                     onKeyDown={(e) => e.key === "Enter" && addCustomCard()}
                     style={{ flex: 1, minWidth: 120, padding: "11px 15px", borderRadius: 999, border: `1px solid ${C.line}`, background: "#fff", fontSize: 14, fontFamily: "Inter" }} />
-                  <button onClick={addCustomCard} aria-label="Adicionar tema"
-                    style={{ width: 42, height: 42, flexShrink: 0, borderRadius: 999, border: `1px solid ${C.sage}`, background: C.sageSoft, color: C.sage, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <button onClick={addCustomCard} disabled={!cardCustom.trim()} aria-label="Adicionar tema personalizado à lista" title="Adicionar tema personalizado à lista"
+                    style={{ width: 42, height: 42, flexShrink: 0, borderRadius: 999, cursor: cardCustom.trim() ? "pointer" : "default", display: "flex", alignItems: "center", justifyContent: "center",
+                      border: `1px solid ${cardCustom.trim() ? C.sage : C.line}`, background: cardCustom.trim() ? C.sageSoft : "#fff", color: cardCustom.trim() ? C.sage : "#C9C4B7" }}>
                     <Plus size={17} />
                   </button>
                   <button onClick={confirmCards} disabled={!cardSel.length}

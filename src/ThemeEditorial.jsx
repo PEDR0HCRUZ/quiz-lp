@@ -1,4 +1,4 @@
-import { ArrowRight, MessageCircle, Instagram, Mail, Check } from "lucide-react";
+import { ArrowRight, MessageCircle, Instagram, Mail, Check, MapPin } from "lucide-react";
 
 /* ------------------------------------------------------------------ */
 /*  Tema "Autoral" — editorial quente, terracota sobre marfim.          */
@@ -225,6 +225,16 @@ export function SitePreviewEditorial({ d }) {
 
       {/* footer */}
       <div style={{ borderTop: `1px solid ${T.line}` }}>
+        {d.endereco && (
+          <div style={wrap({ padding: `26px ${CONTAINER_PAD}px 0` })}>
+            <iframe title="Localização do consultório" loading="lazy"
+              src={`https://www.google.com/maps?q=${encodeURIComponent(d.endereco)}&output=embed`}
+              style={{ width: "100%", height: 200, border: 0, borderRadius: 3, display: "block" }} />
+            <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: T.sub, marginTop: 10 }}>
+              <MapPin size={13} />{d.endereco}
+            </div>
+          </div>
+        )}
         <div style={wrap({ padding: `26px ${CONTAINER_PAD}px`, display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 14 })}>
           <div>
             <div className="ed-serif" style={{ fontStyle: "italic", fontSize: 17 }}>{d.name}</div>
