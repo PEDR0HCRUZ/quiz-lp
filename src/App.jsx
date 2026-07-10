@@ -492,9 +492,11 @@ export default function App() {
       token: otpCode.trim(),
       type: "email",
     });
-    setVerifyingOtp(false);
-    if (error) { setAuthError(error.message); return; }
-    // sucesso: onAuthStateChange (mais abaixo) pega a sessão nova e chama hydrate()
+    if (error) { setVerifyingOtp(false); setAuthError(error.message); return; }
+    // sucesso: NÃO desliga o loading aqui — onAuthStateChange (mais abaixo)
+    // pega a sessão nova e chama hydrate(), que troca de fase. Se resetar
+    // verifyingOtp já aqui, o botão volta a mostrar "Entrar" clicável por um
+    // instante antes da troca de tela, parecendo que precisa clicar de novo.
   };
 
   const logout = async () => {
