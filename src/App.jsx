@@ -424,21 +424,33 @@ function PreviewFrame({ width, children }) {
     setMountNode(doc.body);
   }, [iframeEl]);
 
-  // altura do iframe acompanha a altura real do conteúdo — sem isso, ou fica
-  // fixo (corta conteúdo) ou precisa de scroll duplo (da janela + do iframe).
+  // altura do iframe acompanha a altura real do conteúdo. Mede o elemento de
+  // conteúdo (1º filho do body), NÃO body.scrollHeight: o body estica pra
+  // preencher o iframe, então scrollHeight devolve a altura do próprio iframe
+  // e a medição nunca encolhe — sobrava um vão branco no fim ao trocar pra
+  // telas menores. O rect do conteúdo não depende da altura do iframe.
   useEffect(() => {
     if (!mountNode || !iframeEl) return;
-    const sync = () => { iframeEl.style.height = mountNode.scrollHeight + "px"; };
-    const ro = new ResizeObserver(sync);
+    const measure = () => {
+      const content = mountNode.firstElementChild;
+      if (content) iframeEl.style.height = Math.ceil(content.getBoundingClientRect().height) + "px";
+    };
+    const ro = new ResizeObserver(measure);
     ro.observe(mountNode);
-    sync();
-    return () => ro.disconnect();
-  }, [mountNode, iframeEl]);
+    measure();
+    // imagens carregam depois e mudam a altura — remede quando terminarem
+    const imgs = Array.from(mountNode.querySelectorAll("img"));
+    imgs.forEach((img) => { if (!img.complete) img.addEventListener("load", measure); });
+    return () => {
+      ro.disconnect();
+      imgs.forEach((img) => img.removeEventListener("load", measure));
+    };
+  }, [mountNode, iframeEl, width, children]);
 
   return (
     <>
       <iframe ref={setIframeEl} title="Preview do site"
-        style={{ width, maxWidth: "100%", minHeight: 200, border: 0, display: "block", margin: "0 auto", background: "#fff", transition: "width .25s ease" }} />
+        style={{ width, maxWidth: "100%", minHeight: 200, border: 0, display: "block", margin: "0 auto", background: "#fff" }} />
       {mountNode && createPortal(children, mountNode)}
     </>
   );
