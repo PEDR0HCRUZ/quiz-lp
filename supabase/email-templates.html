@@ -1,0 +1,159 @@
+<!--
+  Templates de e-mail personalizados — Avence Psi.
+  Cada bloco vai num template diferente do Supabase:
+  Authentication → Emails → (nome do template) → aba "Source".
+  Apaga o conteúdo padrão e cola o HTML correspondente.
+-->
+
+<!-- ============================================================
+     1) "Confirm sign up" — já aplicado, mantido aqui por registro.
+     Assunto: Seu código de acesso — Avence Psi
+     ============================================================ -->
+<div style="background:#F3F1EA; padding:32px 16px; font-family: Arial, Helvetica, sans-serif;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:440px; margin:0 auto; background:#FFFFFF; border-radius:20px; border:1px solid #E5E1D6; overflow:hidden;">
+    <tr><td style="padding:36px 32px 28px;">
+      <img src="https://psi-avence-dev.vercel.app/media/email-logo.png" width="140" alt="Avence Psi" style="display:block; margin-bottom:28px;" />
+      <div style="font-family: Georgia, 'Times New Roman', serif; font-size:22px; font-weight:700; color:#17160F; margin-bottom:10px;">Seu código de acesso</div>
+      <p style="font-size:14px; line-height:1.6; color:#6F6A5E; margin:0 0 24px;">Copie o código abaixo e cole na tela onde você pediu o login pra entrar na sua conta.</p>
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
+        <tr><td align="center" style="background:#EAEFE9; border:1px solid #46614D; border-radius:14px; padding:20px;">
+          <span style="font-family: 'Courier New', monospace; font-size:32px; font-weight:700; letter-spacing:.3em; color:#17160F;">{{ .Token }}</span>
+        </td></tr>
+      </table>
+      <p style="font-size:12.5px; line-height:1.6; color:#6F6A5E; margin:0;">Se você não pediu esse código, pode ignorar este e-mail com tranquilidade — ninguém vai conseguir acessar sua conta sem ele.</p>
+    </td></tr>
+    <tr><td style="padding:18px 32px; border-top:1px solid #E5E1D6; background:#FBFAF7;">
+      <span style="font-size:11.5px; color:#6F6A5E;">Avence Psi — crie o site da sua clínica em minutos.</span>
+    </td></tr>
+  </table>
+</div>
+
+
+<!-- ============================================================
+     2) "Magic link or OTP" — O IMPORTANTE. Dispara pra quem já
+     tem conta (login de retorno). É esse que estava faltando.
+     Assunto: Seu código de acesso — Avence Psi
+     ============================================================ -->
+<div style="background:#F3F1EA; padding:32px 16px; font-family: Arial, Helvetica, sans-serif;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:440px; margin:0 auto; background:#FFFFFF; border-radius:20px; border:1px solid #E5E1D6; overflow:hidden;">
+    <tr><td style="padding:36px 32px 28px;">
+      <img src="https://psi-avence-dev.vercel.app/media/email-logo.png" width="140" alt="Avence Psi" style="display:block; margin-bottom:28px;" />
+      <div style="font-family: Georgia, 'Times New Roman', serif; font-size:22px; font-weight:700; color:#17160F; margin-bottom:10px;">Seu código de acesso</div>
+      <p style="font-size:14px; line-height:1.6; color:#6F6A5E; margin:0 0 24px;">Copie o código abaixo e cole na tela onde você pediu o login pra entrar na sua conta.</p>
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
+        <tr><td align="center" style="background:#EAEFE9; border:1px solid #46614D; border-radius:14px; padding:20px;">
+          <span style="font-family: 'Courier New', monospace; font-size:32px; font-weight:700; letter-spacing:.3em; color:#17160F;">{{ .Token }}</span>
+        </td></tr>
+      </table>
+      <p style="font-size:12.5px; line-height:1.6; color:#6F6A5E; margin:0;">Se você não pediu esse código, pode ignorar este e-mail com tranquilidade — ninguém vai conseguir acessar sua conta sem ele.</p>
+    </td></tr>
+    <tr><td style="padding:18px 32px; border-top:1px solid #E5E1D6; background:#FBFAF7;">
+      <span style="font-size:11.5px; color:#6F6A5E;">Avence Psi — crie o site da sua clínica em minutos.</span>
+    </td></tr>
+  </table>
+</div>
+
+
+<!-- ============================================================
+     3) "Invite user" — não usamos ainda no app, mas fica pronto
+     e com a marca certa caso algum admin convide alguém direto
+     pelo painel do Supabase. Esse é o único que faz sentido
+     continuar com botão de link (aceitar convite é uma ação de
+     clique mesmo, não tem "tela" pra colar código).
+     Assunto: Você foi convidado — Avence Psi
+     ============================================================ -->
+<div style="background:#F3F1EA; padding:32px 16px; font-family: Arial, Helvetica, sans-serif;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:440px; margin:0 auto; background:#FFFFFF; border-radius:20px; border:1px solid #E5E1D6; overflow:hidden;">
+    <tr><td style="padding:36px 32px 28px;">
+      <img src="https://psi-avence-dev.vercel.app/media/email-logo.png" width="140" alt="Avence Psi" style="display:block; margin-bottom:28px;" />
+      <div style="font-family: Georgia, 'Times New Roman', serif; font-size:22px; font-weight:700; color:#17160F; margin-bottom:10px;">Você foi convidado</div>
+      <p style="font-size:14px; line-height:1.6; color:#6F6A5E; margin:0 0 26px;">Alguém do time Avence Psi te convidou pra criar uma conta. Clique abaixo pra aceitar.</p>
+      <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 24px;">
+        <tr><td align="center" style="background:#14140F; border-radius:999px;">
+          <a href="{{ .ConfirmationURL }}" style="display:inline-block; padding:14px 28px; font-size:14px; font-weight:700; color:#FFFFFF; text-decoration:none;">Aceitar convite</a>
+        </td></tr>
+      </table>
+      <p style="font-size:12.5px; line-height:1.6; color:#6F6A5E; margin:0;">Se você não esperava esse convite, pode ignorar este e-mail.</p>
+    </td></tr>
+    <tr><td style="padding:18px 32px; border-top:1px solid #E5E1D6; background:#FBFAF7;">
+      <span style="font-size:11.5px; color:#6F6A5E;">Avence Psi — crie o site da sua clínica em minutos.</span>
+    </td></tr>
+  </table>
+</div>
+
+
+<!-- ============================================================
+     4) "Change email address" — não usamos ainda no app (não tem
+     tela de trocar e-mail), mas deixa pronto pra quando/se tiver.
+     Assunto: Confirme seu novo e-mail — Avence Psi
+     ============================================================ -->
+<div style="background:#F3F1EA; padding:32px 16px; font-family: Arial, Helvetica, sans-serif;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:440px; margin:0 auto; background:#FFFFFF; border-radius:20px; border:1px solid #E5E1D6; overflow:hidden;">
+    <tr><td style="padding:36px 32px 28px;">
+      <img src="https://psi-avence-dev.vercel.app/media/email-logo.png" width="140" alt="Avence Psi" style="display:block; margin-bottom:28px;" />
+      <div style="font-family: Georgia, 'Times New Roman', serif; font-size:22px; font-weight:700; color:#17160F; margin-bottom:10px;">Confirme seu novo e-mail</div>
+      <p style="font-size:14px; line-height:1.6; color:#6F6A5E; margin:0 0 26px;">Você pediu pra trocar o e-mail da sua conta pra <b>{{ .NewEmail }}</b>. Clique abaixo pra confirmar.</p>
+      <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 24px;">
+        <tr><td align="center" style="background:#14140F; border-radius:999px;">
+          <a href="{{ .ConfirmationURL }}" style="display:inline-block; padding:14px 28px; font-size:14px; font-weight:700; color:#FFFFFF; text-decoration:none;">Confirmar novo e-mail</a>
+        </td></tr>
+      </table>
+      <p style="font-size:12.5px; line-height:1.6; color:#6F6A5E; margin:0;">Se você não pediu essa troca, ignore este e-mail — seu e-mail atual continua sem alteração.</p>
+    </td></tr>
+    <tr><td style="padding:18px 32px; border-top:1px solid #E5E1D6; background:#FBFAF7;">
+      <span style="font-size:11.5px; color:#6F6A5E;">Avence Psi — crie o site da sua clínica em minutos.</span>
+    </td></tr>
+  </table>
+</div>
+
+
+<!-- ============================================================
+     5) "Reset password" — não usamos ainda (login é só por
+     código/link, sem senha), mas deixa pronto por segurança/
+     consistência, caso o Supabase dispare por algum outro fluxo.
+     Assunto: Redefinir sua senha — Avence Psi
+     ============================================================ -->
+<div style="background:#F3F1EA; padding:32px 16px; font-family: Arial, Helvetica, sans-serif;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:440px; margin:0 auto; background:#FFFFFF; border-radius:20px; border:1px solid #E5E1D6; overflow:hidden;">
+    <tr><td style="padding:36px 32px 28px;">
+      <img src="https://psi-avence-dev.vercel.app/media/email-logo.png" width="140" alt="Avence Psi" style="display:block; margin-bottom:28px;" />
+      <div style="font-family: Georgia, 'Times New Roman', serif; font-size:22px; font-weight:700; color:#17160F; margin-bottom:10px;">Redefinir senha</div>
+      <p style="font-size:14px; line-height:1.6; color:#6F6A5E; margin:0 0 26px;">Recebemos um pedido pra redefinir a senha da sua conta. Clique abaixo pra escolher uma nova.</p>
+      <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 24px;">
+        <tr><td align="center" style="background:#14140F; border-radius:999px;">
+          <a href="{{ .ConfirmationURL }}" style="display:inline-block; padding:14px 28px; font-size:14px; font-weight:700; color:#FFFFFF; text-decoration:none;">Criar nova senha</a>
+        </td></tr>
+      </table>
+      <p style="font-size:12.5px; line-height:1.6; color:#6F6A5E; margin:0;">Se você não pediu essa troca, pode ignorar este e-mail com tranquilidade.</p>
+    </td></tr>
+    <tr><td style="padding:18px 32px; border-top:1px solid #E5E1D6; background:#FBFAF7;">
+      <span style="font-size:11.5px; color:#6F6A5E;">Avence Psi — crie o site da sua clínica em minutos.</span>
+    </td></tr>
+  </table>
+</div>
+
+
+<!-- ============================================================
+     6) "Reauthentication" — confirmação extra antes de uma ação
+     sensível. Já vem com {{ .Token }} por padrão no Supabase,
+     só troquei a marca/visual.
+     Assunto: {{ .Token }} é seu código de verificação — Avence Psi
+     ============================================================ -->
+<div style="background:#F3F1EA; padding:32px 16px; font-family: Arial, Helvetica, sans-serif;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:440px; margin:0 auto; background:#FFFFFF; border-radius:20px; border:1px solid #E5E1D6; overflow:hidden;">
+    <tr><td style="padding:36px 32px 28px;">
+      <img src="https://psi-avence-dev.vercel.app/media/email-logo.png" width="140" alt="Avence Psi" style="display:block; margin-bottom:28px;" />
+      <div style="font-family: Georgia, 'Times New Roman', serif; font-size:22px; font-weight:700; color:#17160F; margin-bottom:10px;">Confirme que é você</div>
+      <p style="font-size:14px; line-height:1.6; color:#6F6A5E; margin:0 0 24px;">Use o código abaixo pra confirmar essa ação na sua conta.</p>
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
+        <tr><td align="center" style="background:#EAEFE9; border:1px solid #46614D; border-radius:14px; padding:20px;">
+          <span style="font-family: 'Courier New', monospace; font-size:32px; font-weight:700; letter-spacing:.3em; color:#17160F;">{{ .Token }}</span>
+        </td></tr>
+      </table>
+      <p style="font-size:12.5px; line-height:1.6; color:#6F6A5E; margin:0;">Se não foi você, ignore este e-mail e considere revisar o acesso à sua conta.</p>
+    </td></tr>
+    <tr><td style="padding:18px 32px; border-top:1px solid #E5E1D6; background:#FBFAF7;">
+      <span style="font-size:11.5px; color:#6F6A5E;">Avence Psi — crie o site da sua clínica em minutos.</span>
+    </td></tr>
+  </table>
+</div>
