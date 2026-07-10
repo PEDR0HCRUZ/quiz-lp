@@ -978,16 +978,8 @@ export default function App() {
               <Inbox size={22} color={C.sage} />
             </div>
             <h1 style={{ fontFamily: "Fraunces, serif", fontSize: 24, fontWeight: 600, margin: "0 0 10px" }}>Verifique seu e-mail</h1>
-            <p style={{ color: C.sub, fontSize: 14.5, lineHeight: 1.6, margin: "0 0 4px" }}>
-              Mandamos um link de acesso pra <b>{lead.email}</b>. Clique nele pra continuar.
-            </p>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "20px 0" }}>
-              <div style={{ flex: 1, height: 1, background: C.line }} />
-              <span style={{ fontSize: 11.5, color: C.sub }}>ou</span>
-              <div style={{ flex: 1, height: 1, background: C.line }} />
-            </div>
-            <p style={{ color: C.sub, fontSize: 13, margin: "0 0 10px" }}>
-              O e-mail também traz um código — cole aqui se o link abrir no navegador errado.
+            <p style={{ color: C.sub, fontSize: 14.5, lineHeight: 1.6, margin: "0 0 18px" }}>
+              Mandamos um código de acesso pra <b>{lead.email}</b>. Copie e cole aqui embaixo pra continuar.
             </p>
             <div style={{ display: "flex", gap: 8 }}>
               <input value={otpCode} onChange={(e) => setOtpCode(e.target.value)} placeholder="000000"
