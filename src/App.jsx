@@ -388,6 +388,8 @@ export default function App() {
   const [authError, setAuthError] = useState("");
   const [sendingLink, setSendingLink] = useState(false);
   const [linkSent, setLinkSent] = useState(false);
+  const [otpCode, setOtpCode] = useState("");
+  const [verifyingOtp, setVerifyingOtp] = useState(false);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [publishedUrl, setPublishedUrl] = useState(null);
@@ -475,6 +477,24 @@ export default function App() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name, email: lead.email }),
     }).catch(() => {});
+  };
+
+  // alternativa ao link — resolve o problema clássico de magic link quando o
+  // e-mail só abre em outro navegador/perfil (a pessoa pede o login aqui,
+  // mas o e-mail abre em outra sessão do navegador, então o link "entra"
+  // no lugar errado). Código de 6 dígitos verifica direto onde foi pedido.
+  const verifyCode = async () => {
+    if (!otpCode.trim()) return;
+    setVerifyingOtp(true);
+    setAuthError("");
+    const { error } = await supabase.auth.verifyOtp({
+      email: lead.email,
+      token: otpCode.trim(),
+      type: "email",
+    });
+    setVerifyingOtp(false);
+    if (error) { setAuthError(error.message); return; }
+    // sucesso: onAuthStateChange (mais abaixo) pega a sessão nova e chama hydrate()
   };
 
   const logout = async () => {
@@ -959,11 +979,30 @@ export default function App() {
             </div>
             <h1 style={{ fontFamily: "Fraunces, serif", fontSize: 24, fontWeight: 600, margin: "0 0 10px" }}>Verifique seu e-mail</h1>
             <p style={{ color: C.sub, fontSize: 14.5, lineHeight: 1.6, margin: "0 0 4px" }}>
-              Mandamos um link de acesso pra <b>{lead.email}</b>. Clique nele pra continuar — pode fechar essa aba.
+              Mandamos um link de acesso pra <b>{lead.email}</b>. Clique nele pra continuar.
             </p>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "20px 0" }}>
+              <div style={{ flex: 1, height: 1, background: C.line }} />
+              <span style={{ fontSize: 11.5, color: C.sub }}>ou</span>
+              <div style={{ flex: 1, height: 1, background: C.line }} />
+            </div>
+            <p style={{ color: C.sub, fontSize: 13, margin: "0 0 10px" }}>
+              O e-mail também traz um código — cole aqui se o link abrir no navegador errado.
+            </p>
+            <div style={{ display: "flex", gap: 8 }}>
+              <input value={otpCode} onChange={(e) => setOtpCode(e.target.value)} placeholder="000000"
+                inputMode="numeric" maxLength={6}
+                onKeyDown={(e) => e.key === "Enter" && verifyCode()}
+                style={{ flex: 1, minWidth: 0, padding: "12px 15px", borderRadius: 11, border: `1px solid ${C.line}`, background: "#fff", fontSize: 16, letterSpacing: ".1em", textAlign: "center", fontFamily: "Inter" }} />
+              <button onClick={verifyCode} disabled={!otpCode.trim() || verifyingOtp}
+                style={{ padding: "0 20px", borderRadius: 11, border: "none", cursor: otpCode.trim() && !verifyingOtp ? "pointer" : "default", background: otpCode.trim() ? C.dark : "#D9D5CA", color: "#fff", fontWeight: 600, fontSize: 13.5, whiteSpace: "nowrap" }}>
+                {verifyingOtp ? "Verificando..." : "Entrar"}
+              </button>
+            </div>
+            {authError && <p style={{ color: "#B3453A", fontSize: 13, margin: "12px 0 0" }}>{authError}</p>}
             <p style={{ color: C.sub, fontSize: 13, margin: "16px 0 0" }}>
               Não chegou? Confira o spam ou{" "}
-              <button onClick={() => setLinkSent(false)} style={{ background: "none", border: "none", padding: 0, color: C.sage, fontWeight: 600, fontSize: 13, cursor: "pointer", textDecoration: "underline" }}>
+              <button onClick={() => { setLinkSent(false); setOtpCode(""); setAuthError(""); }} style={{ background: "none", border: "none", padding: 0, color: C.sage, fontWeight: 600, fontSize: 13, cursor: "pointer", textDecoration: "underline" }}>
                 tente de novo
               </button>.
             </p>
