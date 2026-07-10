@@ -8,7 +8,7 @@ import {
 import { supabase } from "./lib/supabase.js";
 import { slugify, withSuffix } from "./lib/slug.js";
 import { SitePreviewEditorial } from "./ThemeEditorial.jsx";
-import { COLOR_SCHEMES, DEFAULT_COLOR_SCHEME } from "./colorSchemes.js";
+import { COLOR_SCHEMES, DEFAULT_COLOR_SCHEME, darken } from "./colorSchemes.js";
 
 /* ------------------------------------------------------------------ */
 /*  Avence Psi — v2: onboarding conversacional + login por magic link   */
@@ -26,6 +26,10 @@ const C = {
 // largura máxima do conteúdo das seções do site publicado + respiro lateral em telas pequenas
 const CONTAINER_MAX = 1216;
 const CONTAINER_PAD = 32;
+// respiro lateral como CSS var: 32px no desktop, 16px no mobile (a var é
+// redefinida por media query nos blocos de <style>). Usado inline, então
+// a media query consegue "vazar" pra dentro do estilo inline via a variável.
+const CPAD = `var(--cpad, ${CONTAINER_PAD}px)`;
 
 /* ------------------------- template base -------------------------- */
 const DEFAULTS = {
@@ -170,6 +174,9 @@ function buildCopy(input) {
 function SitePreview({ d }) {
   const [openFaq, setOpenFaq] = useState(0);
   const { accent, accentSoft } = COLOR_SCHEMES[d.colorScheme] || COLOR_SCHEMES[DEFAULT_COLOR_SCHEME];
+  // versão escura do accent pros blocos de contraste (metodologia, CTA) — antes
+  // eram preto fixo + verde-limão da Avence, que ignoravam a paleta escolhida.
+  const accentDeep = darken(accent, 0.55);
   const wa = waLink(d.whatsapp, d.waMessage || `Olá, ${firstName(d.name)}! Tenho interesse em agendar uma consulta.`);
   const Btn = ({ children, primary }) => (
     <a href={wa} target="_blank" rel="noreferrer" style={{
@@ -179,12 +186,12 @@ function SitePreview({ d }) {
       border: primary ? "none" : `1px solid ${C.line}`,
     }}>{children}</a>
   );
-  const wrap = (extra) => ({ maxWidth: CONTAINER_MAX, margin: "0 auto", padding: `0 ${CONTAINER_PAD}px`, ...extra });
+  const wrap = (extra) => ({ maxWidth: CONTAINER_MAX, margin: "0 auto", padding: `0 ${CPAD}`, ...extra });
   return (
     <div style={{ fontFamily: "Inter, system-ui, sans-serif", color: C.ink, background: "#fff", fontSize: 14, lineHeight: 1.55 }}>
       {/* header */}
       <div style={{ position: "sticky", top: 0, zIndex: 5, background: "rgba(255,255,255,.9)", backdropFilter: "blur(8px)", borderBottom: `1px solid ${C.line}` }}>
-        <div style={wrap({ display: "flex", alignItems: "center", justifyContent: "space-between", padding: `14px ${CONTAINER_PAD}px` })}>
+        <div style={wrap({ display: "flex", alignItems: "center", justifyContent: "space-between", padding: `14px ${CPAD}` })}>
           {d.logo
             ? <img src={d.logo} alt={d.name} style={{ height: 28, maxWidth: 160, objectFit: "contain" }} />
             : <span style={{ fontFamily: "Fraunces, serif", fontWeight: 600, fontSize: 16 }}>{d.name}</span>}
@@ -198,7 +205,7 @@ function SitePreview({ d }) {
         </div>
       </div>
       {/* hero */}
-      <div className="hero-grid" style={wrap({ padding: `46px ${CONTAINER_PAD}px 40px`, gap: 28, alignItems: "center" })}>
+      <div className="hero-grid" style={wrap({ padding: `46px ${CPAD} 40px`, gap: 28, alignItems: "center" })}>
         <div>
           <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11, fontWeight: 600, color: accent, background: accentSoft, padding: "5px 11px", borderRadius: 999 }}>
             <span style={{ width: 6, height: 6, borderRadius: 99, background: accent }} />{d.badge}
@@ -215,7 +222,7 @@ function SitePreview({ d }) {
       </div>
       {/* especialidades */}
       <div id="especialidades" style={{ background: C.panel, scrollMarginTop: 64 }}>
-        <div style={wrap({ padding: `40px ${CONTAINER_PAD}px` })}>
+        <div style={wrap({ padding: `40px ${CPAD}` })}>
           <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".12em", textTransform: "uppercase", color: accent, margin: 0 }}>Foco em resultados</p>
           <h2 style={{ fontFamily: "Fraunces, serif", fontSize: 26, fontWeight: 600, margin: "8px 0 22px" }}>Especialidades clínicas</h2>
           <div className="spec-grid" style={{ gap: 14 }}>
@@ -230,7 +237,7 @@ function SitePreview({ d }) {
         </div>
       </div>
       {/* diferenciais */}
-      <div className="sobre-grid" style={wrap({ padding: `40px ${CONTAINER_PAD}px`, gap: 26, alignItems: "center" })}>
+      <div className="sobre-grid" style={wrap({ padding: `40px ${CPAD}`, gap: 26, alignItems: "center" })}>
         <div style={{ aspectRatio: "1/1", borderRadius: 16, overflow: "hidden" }}>
           <img src="/media/diferenciais-verde.jpg" alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
         </div>
@@ -249,17 +256,17 @@ function SitePreview({ d }) {
         </div>
       </div>
       {/* metodologia */}
-      <div id="metodo" style={{ background: C.dark, color: "#EDEBE3", scrollMarginTop: 64 }}>
-        <div style={wrap({ padding: `40px ${CONTAINER_PAD}px` })}>
-          <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".12em", textTransform: "uppercase", color: C.acid, margin: 0 }}>Abordagem</p>
+      <div id="metodo" style={{ background: accentDeep, color: "#EDEBE3", scrollMarginTop: 64 }}>
+        <div style={wrap({ padding: `40px ${CPAD}` })}>
+          <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".12em", textTransform: "uppercase", color: accentSoft, margin: 0 }}>Abordagem</p>
           <h2 style={{ fontFamily: "Fraunces, serif", fontSize: 26, fontWeight: 600, margin: "8px 0 16px" }}>{d.methodTitle}</h2>
           {d.methodText.split("\n\n").map((p, i) => (
-            <p key={i} style={{ maxWidth: 560, color: "#C7C4BA", margin: "0 0 12px", fontSize: 13.5, lineHeight: 1.6 }}>{p}</p>
+            <p key={i} style={{ maxWidth: 560, color: "rgba(255,255,255,.72)", margin: "0 0 12px", fontSize: 13.5, lineHeight: 1.6 }}>{p}</p>
           ))}
         </div>
       </div>
       {/* sobre */}
-      <div id="sobre" className="sobre-grid" style={wrap({ padding: `40px ${CONTAINER_PAD}px`, gap: 26, alignItems: "center", scrollMarginTop: 64 })}>
+      <div id="sobre" className="sobre-grid" style={wrap({ padding: `40px ${CPAD}`, gap: 26, alignItems: "center", scrollMarginTop: 64 })}>
         <div>
           <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".12em", textTransform: "uppercase", color: accent, margin: 0 }}>Quem sou eu</p>
           <h2 style={{ fontFamily: "Fraunces, serif", fontSize: 24, fontWeight: 600, margin: "8px 0 14px" }}>Uma escuta clínica e humana.</h2>
@@ -272,7 +279,7 @@ function SitePreview({ d }) {
       </div>
       {/* faq */}
       <div id="duvidas" style={{ background: C.panel, scrollMarginTop: 64 }}>
-        <div style={wrap({ padding: `40px ${CONTAINER_PAD}px` })}>
+        <div style={wrap({ padding: `40px ${CPAD}` })}>
           <h2 style={{ fontFamily: "Fraunces, serif", fontSize: 24, fontWeight: 600, margin: "0 0 18px" }}>Perguntas frequentes</h2>
           {d.faq.map((f, i) => {
             const open = openFaq === i;
@@ -294,11 +301,11 @@ function SitePreview({ d }) {
         </div>
       </div>
       {/* cta final */}
-      <div style={wrap({ padding: `40px ${CONTAINER_PAD}px` })}>
-        <div style={{ background: C.dark, borderRadius: 16, padding: 30, color: "#fff", textAlign: "center" }}>
+      <div style={wrap({ padding: `40px ${CPAD}` })}>
+        <div style={{ background: accent, borderRadius: 16, padding: 30, color: "#fff", textAlign: "center" }}>
           <h3 style={{ fontFamily: "Fraunces, serif", fontSize: 24, fontWeight: 600, margin: "0 0 8px" }}>Vamos dar o primeiro passo?</h3>
-          <p style={{ color: "#B7B4AA", fontSize: 13, margin: "0 0 18px" }}>Agende uma conversa inicial agora mesmo.</p>
-          <a href={wa} target="_blank" rel="noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "12px 22px", borderRadius: 999, background: C.acid, color: C.ink, fontWeight: 700, fontSize: 13, textDecoration: "none" }}>
+          <p style={{ color: "rgba(255,255,255,.82)", fontSize: 13, margin: "0 0 18px" }}>Agende uma conversa inicial agora mesmo.</p>
+          <a href={wa} target="_blank" rel="noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "12px 22px", borderRadius: 999, background: "#fff", color: accentDeep, fontWeight: 700, fontSize: 13, textDecoration: "none" }}>
             <MessageCircle size={15} /> Falar no WhatsApp
           </a>
         </div>
@@ -306,7 +313,7 @@ function SitePreview({ d }) {
       {/* footer */}
       <div style={{ borderTop: `1px solid ${C.line}`, background: C.panel }}>
         {d.endereco && (
-          <div style={wrap({ padding: `26px ${CONTAINER_PAD}px 0` })}>
+          <div style={wrap({ padding: `26px ${CPAD} 0` })}>
             <iframe title="Localização do consultório" loading="lazy"
               src={`https://www.google.com/maps?q=${encodeURIComponent(d.endereco)}&output=embed`}
               style={{ width: "100%", height: 200, border: 0, borderRadius: 12, display: "block" }} />
@@ -315,7 +322,7 @@ function SitePreview({ d }) {
             </div>
           </div>
         )}
-        <div style={wrap({ padding: `26px ${CONTAINER_PAD}px`, display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 14 })}>
+        <div style={wrap({ padding: `26px ${CPAD}`, display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 14 })}>
           <div>
             <div style={{ fontFamily: "Fraunces, serif", fontWeight: 600, fontSize: 15 }}>{d.name}</div>
             <div style={{ fontSize: 12, color: C.sub, marginTop: 4 }}>{d.title} · {d.modalidade}</div>
@@ -392,6 +399,7 @@ const Brand = () => (
 /* tema/paleta continua atualizando o preview instantaneamente).             */
 const PREVIEW_FRAME_CSS = `
   @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600&family=Inter:wght@400;500;600;700&display=swap');
+  :root { --cpad: 32px; }
   *{box-sizing:border-box;} body{margin:0;} details summary::-webkit-details-marker{display:none;}
   html{scroll-behavior:smooth;}
   ::-webkit-scrollbar{width:7px;} ::-webkit-scrollbar-track{background:transparent;}
@@ -400,6 +408,7 @@ const PREVIEW_FRAME_CSS = `
   .sobre-grid { display:grid; grid-template-columns: 1fr 1fr; }
   .spec-grid { display:grid; grid-template-columns: 1fr 1fr; }
   @media (max-width: 640px) {
+    :root { --cpad: 16px; }
     .hero-grid, .sobre-grid, .spec-grid { grid-template-columns: 1fr !important; }
     .hero-grid > div:last-child, .sobre-grid > div:last-child { max-width: 220px; margin: 20px auto 0; }
     .site-nav { display: none !important; }
@@ -965,11 +974,13 @@ export default function App() {
   if (phase === "public") {
     const fontStyle = (
       <style>{`@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600&family=Inter:wght@400;500;600;700&display=swap');
+        :root { --cpad: 32px; }
         *{box-sizing:border-box;} html{scroll-behavior:smooth;} body{margin:0;} details summary::-webkit-details-marker{display:none;}
         .hero-grid { display:grid; grid-template-columns: 1.1fr .9fr; }
         .sobre-grid { display:grid; grid-template-columns: 1fr 1fr; }
         .spec-grid { display:grid; grid-template-columns: 1fr 1fr; }
         @media (max-width: 640px) {
+          :root { --cpad: 16px; }
           .hero-grid, .sobre-grid, .spec-grid { grid-template-columns: 1fr !important; }
           .hero-grid > div:last-child, .sobre-grid > div:last-child { max-width: 220px; margin: 20px auto 0; }
           .site-nav { display: none !important; }

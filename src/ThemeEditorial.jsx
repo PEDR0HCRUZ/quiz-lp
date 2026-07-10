@@ -21,6 +21,8 @@ const T = {
 const CONTAINER_MAX = 1180;
 const CONTAINER_PAD = 32;
 const READ_MAX = 760;
+// respiro lateral que encolhe no mobile via CSS var (definida no style tag).
+const CPAD = `var(--cpad, ${CONTAINER_PAD}px)`;
 
 const FONT_IMPORT =
   "@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Work+Sans:wght@400;500;600;700&display=swap');";
@@ -31,6 +33,7 @@ const NOISE_BG =
 export const EDITORIAL_STYLE_TAG = (
   <style>{`
     ${FONT_IMPORT}
+    .ed-root { --cpad: 32px; }
     .ed-root *{box-sizing:border-box;}
     .ed-root details summary::-webkit-details-marker{display:none;}
     .ed-serif{font-family:'Instrument Serif', serif;}
@@ -41,6 +44,7 @@ export const EDITORIAL_STYLE_TAG = (
     .ed-sobre-grid{display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:center;}
     .ed-diff-grid{display:grid;grid-template-columns:.85fr 1.15fr;gap:44px;align-items:center;}
     @media (max-width: 720px) {
+      .ed-root { --cpad: 16px; }
       .ed-hero-grid,.ed-spec-grid,.ed-sobre-grid,.ed-diff-grid{grid-template-columns:1fr !important;}
       .ed-hero-grid{gap:32px;}
       .ed-hero-photo{order:-1; max-width:240px; margin:0 auto;}
@@ -61,7 +65,7 @@ const igLink = (handle) => {
   return `https://instagram.com/${h.replace(/^@/, "")}`;
 };
 
-const wrap = (extra) => ({ maxWidth: CONTAINER_MAX, margin: "0 auto", padding: `0 ${CONTAINER_PAD}px`, ...extra });
+const wrap = (extra) => ({ maxWidth: CONTAINER_MAX, margin: "0 auto", padding: `0 ${CPAD}`, ...extra });
 
 function Ornament({ color }) {
   return (
@@ -76,6 +80,9 @@ export function SitePreviewEditorial({ d }) {
   const [openFaq, setOpenFaq] = useState(0);
   const { accent, accentSoft } = COLOR_SCHEMES[d.colorScheme] || COLOR_SCHEMES[DEFAULT_COLOR_SCHEME];
   const accentDeep = darken(accent, 0.22);
+  // bloco de contraste (metodologia) — versão bem escura do accent, no lugar
+  // do marrom fixo que ignorava a paleta escolhida.
+  const blockDark = darken(accent, 0.58);
   const wa = waLink(d.whatsapp, d.waMessage || `Olá, ${firstName(d.name)}! Tenho interesse em agendar uma consulta.`);
 
   const Btn = ({ children, primary, big }) => (
@@ -99,7 +106,7 @@ export function SitePreviewEditorial({ d }) {
 
       {/* header */}
       <div style={{ position: "sticky", top: 0, zIndex: 5, background: "rgba(251,245,234,.88)", backdropFilter: "blur(10px)", borderBottom: `1px solid ${T.line}` }}>
-        <div style={wrap({ display: "flex", alignItems: "center", justifyContent: "space-between", padding: `16px ${CONTAINER_PAD}px` })}>
+        <div style={wrap({ display: "flex", alignItems: "center", justifyContent: "space-between", padding: `16px ${CPAD}` })}>
           {d.logo
             ? <img src={d.logo} alt={d.name} style={{ height: 26, maxWidth: 160, objectFit: "contain" }} />
             : <span className="ed-serif" style={{ fontStyle: "italic", fontWeight: 400, fontSize: 20 }}>{d.name}</span>}
@@ -114,7 +121,7 @@ export function SitePreviewEditorial({ d }) {
       </div>
 
       {/* hero */}
-      <div className="ed-hero-grid" style={wrap({ padding: `72px ${CONTAINER_PAD}px 64px` })}>
+      <div className="ed-hero-grid" style={wrap({ padding: `72px ${CPAD} 64px` })}>
         <div className="ed-fade">
           <span style={{ display: "inline-flex", alignItems: "center", gap: 7, fontSize: 11, fontWeight: 600, letterSpacing: ".08em", textTransform: "uppercase", color: accentDeep, background: accentSoft, padding: "6px 13px", borderRadius: 2 }}>
             {d.badge}
@@ -140,7 +147,7 @@ export function SitePreviewEditorial({ d }) {
 
       {/* especialidades */}
       <div id="especialidades" style={{ background: T.panel, borderTop: `1px solid ${T.line}`, borderBottom: `1px solid ${T.line}`, scrollMarginTop: 70 }}>
-        <div style={wrap({ padding: `56px ${CONTAINER_PAD}px` })}>
+        <div style={wrap({ padding: `56px ${CPAD}` })}>
           <Ornament color={accent} />
           <h2 className="ed-serif" style={{ fontStyle: "italic", fontWeight: 400, fontSize: 32, margin: "0 0 28px" }}>Especialidades clínicas</h2>
           <div className="ed-spec-grid">
@@ -158,7 +165,7 @@ export function SitePreviewEditorial({ d }) {
       </div>
 
       {/* diferenciais */}
-      <div className="ed-diff-grid" style={wrap({ padding: `60px ${CONTAINER_PAD}px` })}>
+      <div className="ed-diff-grid" style={wrap({ padding: `60px ${CPAD}` })}>
         <div style={{ position: "relative" }}>
           <div style={{ position: "absolute", inset: 0, transform: "translate(-10px, 10px)", background: T.sand, borderRadius: 2 }} />
           <div style={{ position: "relative", aspectRatio: "1/1", borderRadius: 2, overflow: "hidden", border: `1px solid ${T.ink}` }}>
@@ -181,18 +188,18 @@ export function SitePreviewEditorial({ d }) {
       </div>
 
       {/* metodologia */}
-      <div id="metodo" style={{ background: T.ink, color: "#EFE7DA", scrollMarginTop: 70 }}>
-        <div style={wrap({ padding: `60px ${CONTAINER_PAD}px`, maxWidth: READ_MAX + CONTAINER_PAD * 2 })}>
-          <Ornament color="#D98A66" />
+      <div id="metodo" style={{ background: blockDark, color: "#EFE7DA", scrollMarginTop: 70 }}>
+        <div style={wrap({ padding: `60px ${CPAD}`, maxWidth: READ_MAX + CONTAINER_PAD * 2 })}>
+          <Ornament color={accentSoft} />
           <h2 className="ed-serif" style={{ fontStyle: "italic", fontWeight: 400, fontSize: 30, margin: "0 0 18px", color: "#FBF5EA" }}>{d.methodTitle}</h2>
           {d.methodText.split("\n\n").map((p, i) => (
-            <p key={i} style={{ color: "#C9BEAF", margin: "0 0 14px", fontSize: 14.5, lineHeight: 1.7 }}>{p}</p>
+            <p key={i} style={{ color: "rgba(255,255,255,.72)", margin: "0 0 14px", fontSize: 14.5, lineHeight: 1.7 }}>{p}</p>
           ))}
         </div>
       </div>
 
       {/* sobre */}
-      <div id="sobre" className="ed-sobre-grid" style={wrap({ padding: `60px ${CONTAINER_PAD}px`, scrollMarginTop: 70 })}>
+      <div id="sobre" className="ed-sobre-grid" style={wrap({ padding: `60px ${CPAD}`, scrollMarginTop: 70 })}>
         <div style={{ position: "relative" }}>
           <div style={{ position: "absolute", inset: 0, transform: "translate(12px, -12px)", background: T.sand, borderRadius: 2 }} />
           <div style={{ position: "relative", aspectRatio: "4/5", borderRadius: 2, overflow: "hidden", border: `1px solid ${T.ink}` }}>
@@ -209,7 +216,7 @@ export function SitePreviewEditorial({ d }) {
 
       {/* faq */}
       <div id="duvidas" style={{ background: T.panel, borderTop: `1px solid ${T.line}`, scrollMarginTop: 70 }}>
-        <div style={wrap({ padding: `56px ${CONTAINER_PAD}px`, maxWidth: READ_MAX + CONTAINER_PAD * 2 })}>
+        <div style={wrap({ padding: `56px ${CPAD}`, maxWidth: READ_MAX + CONTAINER_PAD * 2 })}>
           <Ornament color={accent} />
           <h2 className="ed-serif" style={{ fontStyle: "italic", fontWeight: 400, fontSize: 28, margin: "0 0 20px" }}>Perguntas frequentes</h2>
           {d.faq.map((f, i) => {
@@ -235,7 +242,7 @@ export function SitePreviewEditorial({ d }) {
       </div>
 
       {/* cta final */}
-      <div style={wrap({ padding: `60px ${CONTAINER_PAD}px` })}>
+      <div style={wrap({ padding: `60px ${CPAD}` })}>
         <div style={{ background: accent, borderRadius: 4, padding: "44px 32px", color: T.paper, textAlign: "center", position: "relative", overflow: "hidden" }}>
           <span className="ed-serif" style={{ position: "absolute", top: -30, left: -10, fontStyle: "italic", fontSize: 160, opacity: .12, lineHeight: 1 }}>”</span>
           <h3 className="ed-serif" style={{ fontStyle: "italic", fontWeight: 400, fontSize: 30, margin: "0 0 10px", position: "relative" }}>Vamos dar o primeiro passo?</h3>
@@ -249,7 +256,7 @@ export function SitePreviewEditorial({ d }) {
       {/* footer */}
       <div style={{ borderTop: `1px solid ${T.line}` }}>
         {d.endereco && (
-          <div style={wrap({ padding: `26px ${CONTAINER_PAD}px 0` })}>
+          <div style={wrap({ padding: `26px ${CPAD} 0` })}>
             <iframe title="Localização do consultório" loading="lazy"
               src={`https://www.google.com/maps?q=${encodeURIComponent(d.endereco)}&output=embed`}
               style={{ width: "100%", height: 200, border: 0, borderRadius: 3, display: "block" }} />
@@ -258,7 +265,7 @@ export function SitePreviewEditorial({ d }) {
             </div>
           </div>
         )}
-        <div style={wrap({ padding: `26px ${CONTAINER_PAD}px`, display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 14 })}>
+        <div style={wrap({ padding: `26px ${CPAD}`, display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 14 })}>
           <div>
             <div className="ed-serif" style={{ fontStyle: "italic", fontSize: 17 }}>{d.name}</div>
             <div style={{ fontSize: 12, color: T.sub, marginTop: 4 }}>{d.title} · {d.modalidade}</div>
