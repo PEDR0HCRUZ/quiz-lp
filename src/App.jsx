@@ -237,7 +237,7 @@ function SitePreview({ d }) {
         </div>
       </div>
       {/* diferenciais */}
-      <div className="sobre-grid" style={wrap({ padding: `40px ${CPAD}`, gap: 26, alignItems: "center" })}>
+      <div className="diff-grid" style={wrap({ padding: `40px ${CPAD}`, gap: 26, alignItems: "center" })}>
         <div style={{ aspectRatio: "1/1", borderRadius: 16, overflow: "hidden" }}>
           <img src="/media/diferenciais-verde.jpg" alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
         </div>
@@ -406,11 +406,13 @@ const PREVIEW_FRAME_CSS = `
   ::-webkit-scrollbar-thumb{background:#D8D3C6;border-radius:9px;}
   .hero-grid { display:grid; grid-template-columns: 1.1fr .9fr; }
   .sobre-grid { display:grid; grid-template-columns: 1fr 1fr; }
+  .diff-grid { display:grid; grid-template-columns: 1fr 1fr; }
   .spec-grid { display:grid; grid-template-columns: 1fr 1fr; }
   @media (max-width: 640px) {
     :root { --cpad: 16px; }
-    .hero-grid, .sobre-grid, .spec-grid { grid-template-columns: 1fr !important; }
+    .hero-grid, .sobre-grid, .diff-grid, .spec-grid { grid-template-columns: 1fr !important; }
     .hero-grid > div:last-child, .sobre-grid > div:last-child { max-width: 220px; margin: 20px auto 0; }
+    .diff-grid > div:first-child { max-width: 280px; margin: 0 auto 20px; }
     .site-nav { display: none !important; }
   }
 `;
@@ -978,11 +980,13 @@ export default function App() {
         *{box-sizing:border-box;} html{scroll-behavior:smooth;} body{margin:0;} details summary::-webkit-details-marker{display:none;}
         .hero-grid { display:grid; grid-template-columns: 1.1fr .9fr; }
         .sobre-grid { display:grid; grid-template-columns: 1fr 1fr; }
+        .diff-grid { display:grid; grid-template-columns: 1fr 1fr; }
         .spec-grid { display:grid; grid-template-columns: 1fr 1fr; }
         @media (max-width: 640px) {
           :root { --cpad: 16px; }
-          .hero-grid, .sobre-grid, .spec-grid { grid-template-columns: 1fr !important; }
+          .hero-grid, .sobre-grid, .diff-grid, .spec-grid { grid-template-columns: 1fr !important; }
           .hero-grid > div:last-child, .sobre-grid > div:last-child { max-width: 220px; margin: 20px auto 0; }
+          .diff-grid > div:first-child { max-width: 280px; margin: 0 auto 20px; }
           .site-nav { display: none !important; }
         }`}</style>
     );
