@@ -411,8 +411,8 @@ const PREVIEW_FRAME_CSS = `
   @media (max-width: 640px) {
     :root { --cpad: 16px; }
     .hero-grid, .sobre-grid, .diff-grid, .spec-grid { grid-template-columns: 1fr !important; }
-    .hero-grid > div:last-child, .sobre-grid > div:last-child { max-width: 220px; margin: 20px auto 0; }
-    .diff-grid > div:first-child { max-width: 280px; margin: 0 auto 20px; }
+    .hero-grid > div:last-child, .sobre-grid > div:last-child { width: 100%; max-width: 420px; margin: 20px auto 0; }
+    .diff-grid > div:first-child { width: 100%; max-width: 420px; margin: 0 auto 20px; }
     .site-nav { display: none !important; }
   }
 `;
@@ -985,8 +985,8 @@ export default function App() {
         @media (max-width: 640px) {
           :root { --cpad: 16px; }
           .hero-grid, .sobre-grid, .diff-grid, .spec-grid { grid-template-columns: 1fr !important; }
-          .hero-grid > div:last-child, .sobre-grid > div:last-child { max-width: 220px; margin: 20px auto 0; }
-          .diff-grid > div:first-child { max-width: 280px; margin: 0 auto 20px; }
+          .hero-grid > div:last-child, .sobre-grid > div:last-child { width: 100%; max-width: 420px; margin: 20px auto 0; }
+          .diff-grid > div:first-child { width: 100%; max-width: 420px; margin: 0 auto 20px; }
           .site-nav { display: none !important; }
         }`}</style>
     );

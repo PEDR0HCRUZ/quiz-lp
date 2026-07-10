@@ -47,7 +47,7 @@ export const EDITORIAL_STYLE_TAG = (
       .ed-root { --cpad: 16px; }
       .ed-hero-grid,.ed-spec-grid,.ed-sobre-grid,.ed-diff-grid{grid-template-columns:1fr !important;}
       .ed-hero-grid{gap:32px;}
-      .ed-hero-photo{order:-1; max-width:240px; margin:0 auto;}
+      .ed-hero-photo{order:-1; max-width:360px; margin:0 auto;}
       .ed-nav{display:none !important;}
     }
   `}</style>
