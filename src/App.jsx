@@ -393,6 +393,9 @@ const Brand = () => (
 const PREVIEW_FRAME_CSS = `
   @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600&family=Inter:wght@400;500;600;700&display=swap');
   *{box-sizing:border-box;} body{margin:0;} details summary::-webkit-details-marker{display:none;}
+  html{scroll-behavior:smooth;}
+  ::-webkit-scrollbar{width:7px;} ::-webkit-scrollbar-track{background:transparent;}
+  ::-webkit-scrollbar-thumb{background:#D8D3C6;border-radius:9px;}
   .hero-grid { display:grid; grid-template-columns: 1.1fr .9fr; }
   .sobre-grid { display:grid; grid-template-columns: 1fr 1fr; }
   .spec-grid { display:grid; grid-template-columns: 1fr 1fr; }
@@ -409,7 +412,12 @@ const PREVIEW_DEVICES = {
   mobile: { label: "Mobile", width: 375, icon: Smartphone },
 };
 
-function PreviewFrame({ width, children }) {
+/* O iframe É o dispositivo: largura da tela simulada, altura 100% do palco,   */
+/* rolando por dentro dele mesmo — igual um navegador de verdade. A tentativa  */
+/* anterior (crescer o iframe até a altura total do conteúdo e deixar o        */
+/* container de fora rolar) dava barra de rolagem fantasma na borda e sobra    */
+/* de espaço no fim das telas menores.                                         */
+function PreviewFrame({ width, radius, children }) {
   const [iframeEl, setIframeEl] = useState(null);
   const [mountNode, setMountNode] = useState(null);
 
@@ -424,33 +432,10 @@ function PreviewFrame({ width, children }) {
     setMountNode(doc.body);
   }, [iframeEl]);
 
-  // altura do iframe acompanha a altura real do conteúdo. Mede o elemento de
-  // conteúdo (1º filho do body), NÃO body.scrollHeight: o body estica pra
-  // preencher o iframe, então scrollHeight devolve a altura do próprio iframe
-  // e a medição nunca encolhe — sobrava um vão branco no fim ao trocar pra
-  // telas menores. O rect do conteúdo não depende da altura do iframe.
-  useEffect(() => {
-    if (!mountNode || !iframeEl) return;
-    const measure = () => {
-      const content = mountNode.firstElementChild;
-      if (content) iframeEl.style.height = Math.ceil(content.getBoundingClientRect().height) + "px";
-    };
-    const ro = new ResizeObserver(measure);
-    ro.observe(mountNode);
-    measure();
-    // imagens carregam depois e mudam a altura — remede quando terminarem
-    const imgs = Array.from(mountNode.querySelectorAll("img"));
-    imgs.forEach((img) => { if (!img.complete) img.addEventListener("load", measure); });
-    return () => {
-      ro.disconnect();
-      imgs.forEach((img) => img.removeEventListener("load", measure));
-    };
-  }, [mountNode, iframeEl, width, children]);
-
   return (
     <>
       <iframe ref={setIframeEl} title="Preview do site"
-        style={{ width, maxWidth: "100%", minHeight: 200, border: 0, display: "block", margin: "0 auto", background: "#fff" }} />
+        style={{ width, maxWidth: "100%", height: "100%", border: 0, display: "block", background: "#fff", borderRadius: radius }} />
       {mountNode && createPortal(children, mountNode)}
     </>
   );
@@ -1421,7 +1406,6 @@ export default function App() {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600&family=Inter:wght@400;500;600;700&display=swap');
         *{box-sizing:border-box;} body{margin:0;} details summary::-webkit-details-marker{display:none;}
-        .prev{scroll-behavior:smooth;} .prev::-webkit-scrollbar{width:8px;} .prev::-webkit-scrollbar-thumb{background:#D8D3C6;border-radius:9px;}
 
         /* --- grids do preview do site: colapsam em telas estreitas --- */
         .hero-grid { display:grid; grid-template-columns: 1.1fr .9fr; }
@@ -1556,15 +1540,15 @@ export default function App() {
               </div>
             </div>
           </div>
-          <div className="prev fade" style={{
-            ...(previewDevice === "desktop"
-              ? { flex: 1, minWidth: 0 }
-              : { width: PREVIEW_DEVICES[previewDevice].width + 48, margin: "0 auto" }),
-            borderRadius: 18, border: `1px solid ${C.line}`, overflow: "auto", maxHeight: "calc(100vh - 170px)",
-            background: previewDevice === "desktop" ? "#fff" : C.panel, boxShadow: "0 24px 60px -36px rgba(0,0,0,.3)",
-            padding: previewDevice === "desktop" ? 0 : 24,
+          <div className="fade" style={{
+            flex: 1, minWidth: 0, height: "calc(100vh - 150px)",
+            borderRadius: 18, border: `1px solid ${C.line}`, overflow: "hidden",
+            background: previewDevice === "desktop" ? "#fff" : C.paper,
+            boxShadow: "0 24px 60px -36px rgba(0,0,0,.3)",
+            display: "flex", justifyContent: "center",
+            padding: previewDevice === "desktop" ? 0 : 20,
           }}>
-            <PreviewFrame width={PREVIEW_DEVICES[previewDevice].width}>
+            <PreviewFrame width={PREVIEW_DEVICES[previewDevice].width} radius={previewDevice === "desktop" ? 0 : 10}>
               <ThemedSite d={site} />
             </PreviewFrame>
           </div>
