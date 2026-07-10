@@ -985,12 +985,12 @@ export default function App() {
             </p>
             <div style={{ display: "flex", gap: 8 }}>
               <input value={otpCode} onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, "").slice(0, 8))} placeholder="00000000"
-                inputMode="numeric"
+                inputMode="numeric" disabled={verifyingOtp}
                 onKeyDown={(e) => e.key === "Enter" && verifyCode()}
-                style={{ flex: 1, minWidth: 0, padding: "12px 15px", borderRadius: 11, border: `1px solid ${C.line}`, background: "#fff", fontSize: 16, letterSpacing: ".1em", textAlign: "center", fontFamily: "Inter" }} />
+                style={{ flex: 1, minWidth: 0, padding: "12px 15px", borderRadius: 11, border: `1px solid ${C.line}`, background: verifyingOtp ? "#F3F1EA" : "#fff", fontSize: 16, letterSpacing: ".1em", textAlign: "center", fontFamily: "Inter" }} />
               <button onClick={verifyCode} disabled={!otpCode.trim() || verifyingOtp}
-                style={{ padding: "0 20px", borderRadius: 11, border: "none", cursor: otpCode.trim() && !verifyingOtp ? "pointer" : "default", background: otpCode.trim() ? C.dark : "#D9D5CA", color: "#fff", fontWeight: 600, fontSize: 13.5, whiteSpace: "nowrap" }}>
-                {verifyingOtp ? "Verificando..." : "Entrar"}
+                style={{ padding: "0 20px", borderRadius: 11, border: "none", cursor: otpCode.trim() && !verifyingOtp ? "pointer" : "default", background: otpCode.trim() ? C.dark : "#D9D5CA", color: "#fff", fontWeight: 600, fontSize: 13.5, whiteSpace: "nowrap", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 7 }}>
+                {verifyingOtp ? (<><Loader2 size={15} className="spin" /> Verificando...</>) : "Entrar"}
               </button>
             </div>
             {authError && <p style={{ color: "#B3453A", fontSize: 13, margin: "12px 0 0" }}>{authError}</p>}
