@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import {
   ArrowRight, Send, MessageCircle, Instagram, Mail, Check,
   Sparkles, Loader2, Pencil, X, Plus, Image as ImageIcon, MapPin,
-  LogOut, ChevronDown, Inbox,
+  LogOut, ChevronDown, Inbox, Monitor, Tablet, Smartphone, Copy, ExternalLink,
 } from "lucide-react";
 import { supabase } from "./lib/supabase.js";
 import { slugify, withSuffix } from "./lib/slug.js";
@@ -381,6 +382,68 @@ const Brand = () => (
   </div>
 );
 
+/* --------- preview responsivo (mobile/tablet/desktop) ---------- */
+/* O preview do site renderiza direto no DOM da página do painel, então as    */
+/* media queries do site (@media max-width:640px etc.) respondem à largura   */
+/* da JANELA do navegador, não à largura de uma div. Só dá pra simular       */
+/* mobile/tablet de verdade com um <iframe> — tem seu próprio viewport       */
+/* independente. Usa portal do React pra montar o mesmo componente ao vivo   */
+/* dentro do documento do iframe, sem perder reatividade (troca de           */
+/* tema/paleta continua atualizando o preview instantaneamente).             */
+const PREVIEW_FRAME_CSS = `
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600&family=Inter:wght@400;500;600;700&display=swap');
+  *{box-sizing:border-box;} body{margin:0;} details summary::-webkit-details-marker{display:none;}
+  .hero-grid { display:grid; grid-template-columns: 1.1fr .9fr; }
+  .sobre-grid { display:grid; grid-template-columns: 1fr 1fr; }
+  .spec-grid { display:grid; grid-template-columns: 1fr 1fr; }
+  @media (max-width: 640px) {
+    .hero-grid, .sobre-grid, .spec-grid { grid-template-columns: 1fr !important; }
+    .hero-grid > div:last-child, .sobre-grid > div:last-child { max-width: 220px; margin: 20px auto 0; }
+    .site-nav { display: none !important; }
+  }
+`;
+
+const PREVIEW_DEVICES = {
+  desktop: { label: "Desktop", width: "100%", icon: Monitor },
+  tablet: { label: "Tablet", width: 768, icon: Tablet },
+  mobile: { label: "Mobile", width: 375, icon: Smartphone },
+};
+
+function PreviewFrame({ width, children }) {
+  const [iframeEl, setIframeEl] = useState(null);
+  const [mountNode, setMountNode] = useState(null);
+
+  useEffect(() => {
+    if (!iframeEl) return;
+    const doc = iframeEl.contentDocument;
+    if (!doc || !doc.body) return;
+    doc.body.style.margin = "0";
+    const style = doc.createElement("style");
+    style.textContent = PREVIEW_FRAME_CSS;
+    doc.head.appendChild(style);
+    setMountNode(doc.body);
+  }, [iframeEl]);
+
+  // altura do iframe acompanha a altura real do conteúdo — sem isso, ou fica
+  // fixo (corta conteúdo) ou precisa de scroll duplo (da janela + do iframe).
+  useEffect(() => {
+    if (!mountNode || !iframeEl) return;
+    const sync = () => { iframeEl.style.height = mountNode.scrollHeight + "px"; };
+    const ro = new ResizeObserver(sync);
+    ro.observe(mountNode);
+    sync();
+    return () => ro.disconnect();
+  }, [mountNode, iframeEl]);
+
+  return (
+    <>
+      <iframe ref={setIframeEl} title="Preview do site"
+        style={{ width, maxWidth: "100%", minHeight: 200, border: 0, display: "block", margin: "0 auto", background: "#fff", transition: "width .25s ease" }} />
+      {mountNode && createPortal(children, mountNode)}
+    </>
+  );
+}
+
 /* ============================== APP ============================== */
 export default function App() {
   const [phase, setPhase] = useState("loading"); // loading | public | welcome | chat | generating | site
@@ -391,6 +454,7 @@ export default function App() {
   const [otpCode, setOtpCode] = useState("");
   const [verifyingOtp, setVerifyingOtp] = useState(false);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+  const [previewDevice, setPreviewDevice] = useState("desktop");
   const [publishing, setPublishing] = useState(false);
   const [publishedUrl, setPublishedUrl] = useState(null);
   const [siteSlug, setSiteSlug] = useState(null);
@@ -1379,6 +1443,18 @@ export default function App() {
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
             <div className="site-actions-row" style={{ display: "flex", gap: 10 }}>
+              {publishedUrl && (
+                <>
+                  <a href={publishedUrl} target="_blank" rel="noreferrer"
+                    style={{ padding: "11px 18px", borderRadius: 999, border: `1px solid ${C.line}`, background: "#fff", color: C.ink, fontWeight: 600, fontSize: 13.5, cursor: "pointer", whiteSpace: "nowrap", textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 7 }}>
+                    <ExternalLink size={14} /> Ver site
+                  </a>
+                  <button onClick={() => navigator.clipboard?.writeText(publishedUrl)} aria-label="Copiar link" title="Copiar link"
+                    style={{ width: 42, height: 42, flexShrink: 0, borderRadius: 999, border: `1px solid ${C.line}`, background: "#fff", color: C.sub, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <Copy size={15} />
+                  </button>
+                </>
+              )}
               <button onClick={restartQuiz}
                 style={{ padding: "11px 18px", borderRadius: 999, border: `1px solid ${C.line}`, background: "#fff", color: C.ink, fontWeight: 600, fontSize: 13.5, cursor: "pointer", whiteSpace: "nowrap" }}>
                 Recomeçar
@@ -1413,16 +1489,22 @@ export default function App() {
         {authError && (
           <div className="fade" style={{ marginBottom: 12, fontSize: 13, color: "#B3453A" }}>{authError}</div>
         )}
-        {publishedUrl && (
-          <div className="fade" style={{ marginBottom: 16, padding: "12px 16px", borderRadius: 12, background: C.sageSoft, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-            <span style={{ fontSize: 13, color: C.sage, fontWeight: 600 }}>No ar:</span>
-            <a href={publishedUrl} target="_blank" rel="noreferrer" style={{ fontSize: 13.5, color: C.ink, fontWeight: 600 }}>{publishedUrl}</a>
-            <button onClick={() => navigator.clipboard?.writeText(publishedUrl)}
-              style={{ marginLeft: "auto", padding: "6px 12px", borderRadius: 999, border: `1px solid ${C.line}`, background: "#fff", color: C.ink, fontSize: 12.5, fontWeight: 600, cursor: "pointer" }}>
-              Copiar link
-            </button>
+        <div className="fade" style={{ marginBottom: 16, display: "flex", justifyContent: "flex-end" }}>
+          <div style={{ display: "flex", gap: 3, padding: 3, borderRadius: 11, background: C.panel, border: `1px solid ${C.line}` }}>
+            {Object.entries(PREVIEW_DEVICES).map(([key, { label, icon: Icon }]) => (
+              <button key={key} onClick={() => setPreviewDevice(key)} aria-label={label} title={label}
+                style={{
+                  width: 36, height: 32, borderRadius: 8, border: "none", cursor: "pointer",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  background: previewDevice === key ? "#fff" : "transparent",
+                  color: previewDevice === key ? C.ink : C.sub,
+                  boxShadow: previewDevice === key ? "0 1px 4px rgba(0,0,0,.12)" : "none",
+                }}>
+                <Icon size={16} />
+              </button>
+            ))}
           </div>
-        )}
+        </div>
         <div className="site-editor-cols" style={{ display: "flex", gap: 20, alignItems: "flex-start" }}>
           <div className="site-sidebar fade" style={{ width: 224, flexShrink: 0, position: "sticky", top: 22, display: "flex", flexDirection: "column", gap: 22 }}>
             <div>
@@ -1462,8 +1544,14 @@ export default function App() {
               </div>
             </div>
           </div>
-          <div className="prev fade" style={{ flex: 1, minWidth: 0, borderRadius: 18, border: `1px solid ${C.line}`, overflow: "auto", maxHeight: "calc(100vh - 120px)", background: "#fff", boxShadow: "0 24px 60px -36px rgba(0,0,0,.3)" }}>
-            <ThemedSite d={site} />
+          <div className="prev fade" style={{
+            flex: 1, minWidth: 0, borderRadius: 18, border: `1px solid ${C.line}`, overflow: "auto", maxHeight: "calc(100vh - 120px)",
+            background: previewDevice === "desktop" ? "#fff" : C.panel, boxShadow: "0 24px 60px -36px rgba(0,0,0,.3)",
+            padding: previewDevice === "desktop" ? 0 : "24px 0",
+          }}>
+            <PreviewFrame width={PREVIEW_DEVICES[previewDevice].width}>
+              <ThemedSite d={site} />
+            </PreviewFrame>
           </div>
         </div>
       </div>
