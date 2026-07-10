@@ -48,7 +48,6 @@ const DEFAULTS = {
     { t: "Economia", d: "Sem deslocamento nem tempo no trânsito." },
     { t: "Privacidade", d: "Plataforma de vídeo segura e criptografada." },
   ],
-  aviso: "Atendimento particular. Recibo emitido para reembolso.",
   methodTitle: "Sobre a abordagem",
   methodText: "Uma escuta clínica baseada em evidências, colaborativa e respeitosa com o seu tempo.\n\nO trabalho é conjunto: identificamos padrões que geram sofrimento e desenvolvemos recursos mais saudáveis.",
   bio: "Busco proporcionar um ambiente acolhedor e seguro, onde você possa se expressar livremente.",
@@ -242,7 +241,7 @@ function SitePreview({ d }) {
           <img src="/media/diferenciais-verde.jpg" alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
         </div>
         <div>
-          <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".12em", textTransform: "uppercase", color: accent, margin: 0 }}>Diferenciais</p>
+          <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".12em", textTransform: "uppercase", color: accent, margin: 0 }}>Psicologia online</p>
           <h2 style={{ fontFamily: "Fraunces, serif", fontSize: 24, fontWeight: 600, margin: "8px 0 16px" }}>Por que esse atendimento?</h2>
           {d.benefits.map((b, i) => (
             <div key={i} style={{ display: "flex", gap: 10, marginBottom: 12 }}>
@@ -252,7 +251,6 @@ function SitePreview({ d }) {
               <p style={{ margin: 0, fontSize: 13.5 }}><b>{b.t}</b> — <span style={{ color: C.sub }}>{b.d}</span></p>
             </div>
           ))}
-          {d.aviso && <p style={{ marginTop: 14, fontSize: 12, color: C.sub, fontStyle: "italic" }}>{d.aviso}</p>}
         </div>
       </div>
       {/* metodologia */}

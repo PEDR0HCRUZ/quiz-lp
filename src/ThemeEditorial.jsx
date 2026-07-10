@@ -174,6 +174,7 @@ export function SitePreviewEditorial({ d }) {
         </div>
         <div>
           <Ornament color={accent} />
+          <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".1em", textTransform: "uppercase", color: accentDeep, margin: "0 0 8px" }}>Psicologia online</p>
           <h2 className="ed-serif" style={{ fontStyle: "italic", fontWeight: 400, fontSize: 28, margin: "0 0 20px" }}>Por que esse atendimento?</h2>
           {d.benefits.map((b, i) => (
             <div key={i} style={{ display: "flex", gap: 12, marginBottom: 14 }}>
@@ -183,7 +184,6 @@ export function SitePreviewEditorial({ d }) {
               <p style={{ margin: 0, fontSize: 14 }}><b>{b.t}</b> — <span style={{ color: T.sub }}>{b.d}</span></p>
             </div>
           ))}
-          {d.aviso && <p style={{ marginTop: 18, fontSize: 12.5, color: T.sub, fontStyle: "italic" }}>{d.aviso}</p>}
         </div>
       </div>
 
