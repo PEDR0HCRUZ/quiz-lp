@@ -1545,9 +1545,12 @@ export default function App() {
             </div>
           </div>
           <div className="prev fade" style={{
-            flex: 1, minWidth: 0, borderRadius: 18, border: `1px solid ${C.line}`, overflow: "auto", maxHeight: "calc(100vh - 120px)",
+            ...(previewDevice === "desktop"
+              ? { flex: 1, minWidth: 0 }
+              : { width: PREVIEW_DEVICES[previewDevice].width + 48, margin: "0 auto" }),
+            borderRadius: 18, border: `1px solid ${C.line}`, overflow: "auto", maxHeight: "calc(100vh - 170px)",
             background: previewDevice === "desktop" ? "#fff" : C.panel, boxShadow: "0 24px 60px -36px rgba(0,0,0,.3)",
-            padding: previewDevice === "desktop" ? 0 : "24px 0",
+            padding: previewDevice === "desktop" ? 0 : 24,
           }}>
             <PreviewFrame width={PREVIEW_DEVICES[previewDevice].width}>
               <ThemedSite d={site} />
