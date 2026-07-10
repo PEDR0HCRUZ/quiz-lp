@@ -86,7 +86,7 @@ export function SitePreviewEditorial({ d }) {
   const wa = waLink(d.whatsapp, d.waMessage || `Olá, ${firstName(d.name)}! Tenho interesse em agendar uma consulta.`);
 
   const Btn = ({ children, primary, big }) => (
-    <a href={wa} target="_blank" rel="noreferrer" style={{
+    <a href={wa} target="_blank" rel="noreferrer" data-edit="whatsapp" style={{
       display: "inline-flex", alignItems: "center", gap: 9,
       padding: big ? "15px 26px" : "12px 21px", borderRadius: 3,
       fontSize: big ? 14.5 : 13, fontWeight: 600, textDecoration: "none", letterSpacing: ".01em",
@@ -108,8 +108,8 @@ export function SitePreviewEditorial({ d }) {
       <div style={{ position: "sticky", top: 0, zIndex: 5, background: "rgba(251,245,234,.88)", backdropFilter: "blur(10px)", borderBottom: `1px solid ${T.line}` }}>
         <div style={wrap({ display: "flex", alignItems: "center", justifyContent: "space-between", padding: `16px ${CPAD}` })}>
           {d.logo
-            ? <img src={d.logo} alt={d.name} style={{ height: 26, maxWidth: 160, objectFit: "contain" }} />
-            : <span className="ed-serif" style={{ fontStyle: "italic", fontWeight: 400, fontSize: 20 }}>{d.name}</span>}
+            ? <img src={d.logo} alt={d.name} data-edit="logo" style={{ height: 26, maxWidth: 160, objectFit: "contain" }} />
+            : <span className="ed-serif" data-edit="name" style={{ fontStyle: "italic", fontWeight: 400, fontSize: 20 }}>{d.name}</span>}
           <nav className="ed-nav" style={{ display: "flex", gap: 22, fontSize: 12.5, color: T.sub, letterSpacing: ".02em" }}>
             <a href="#especialidades" style={{ color: "inherit", textDecoration: "none" }}>Especialidades</a>
             <a href="#metodo" style={{ color: "inherit", textDecoration: "none" }}>Método</a>
@@ -123,13 +123,13 @@ export function SitePreviewEditorial({ d }) {
       {/* hero */}
       <div className="ed-hero-grid" style={wrap({ padding: `72px ${CPAD} 64px` })}>
         <div className="ed-fade">
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 7, fontSize: 11, fontWeight: 600, letterSpacing: ".08em", textTransform: "uppercase", color: accentDeep, background: accentSoft, padding: "6px 13px", borderRadius: 2 }}>
+          <span data-edit="badge" style={{ display: "inline-flex", alignItems: "center", gap: 7, fontSize: 11, fontWeight: 600, letterSpacing: ".08em", textTransform: "uppercase", color: accentDeep, background: accentSoft, padding: "6px 13px", borderRadius: 2 }}>
             {d.badge}
           </span>
-          <h1 className="ed-serif" style={{ fontStyle: "italic", fontWeight: 400, fontSize: "clamp(34px, 4.6vw, 54px)", lineHeight: 1.04, margin: "22px 0 16px", letterSpacing: "-.01em" }}>
+          <h1 className="ed-serif" data-edit="headline" style={{ fontStyle: "italic", fontWeight: 400, fontSize: "clamp(34px, 4.6vw, 54px)", lineHeight: 1.04, margin: "22px 0 16px", letterSpacing: "-.01em" }}>
             {d.headline}
           </h1>
-          <p style={{ color: T.sub, maxWidth: 420, margin: "0 0 28px", fontSize: 15.5 }}>{d.subheadline}</p>
+          <p data-edit="subheadline" style={{ color: T.sub, maxWidth: 420, margin: "0 0 28px", fontSize: 15.5 }}>{d.subheadline}</p>
           <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
             <Btn primary big>Iniciar jornada <ArrowRight size={15} /></Btn>
             <Btn big>Saiba mais</Btn>
@@ -137,7 +137,7 @@ export function SitePreviewEditorial({ d }) {
         </div>
         <div className="ed-hero-photo ed-fade" style={{ position: "relative", animationDelay: ".15s" }}>
           <div style={{ position: "absolute", inset: 0, transform: "translate(14px, 14px)", background: accent, borderRadius: 2 }} />
-          <div style={{ position: "relative", aspectRatio: "3/4", borderRadius: 2, overflow: "hidden", border: `1px solid ${T.ink}`, background: accentSoft, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div data-edit="photo" style={{ position: "relative", aspectRatio: "3/4", borderRadius: 2, overflow: "hidden", border: `1px solid ${T.ink}`, background: accentSoft, display: "flex", alignItems: "center", justifyContent: "center" }}>
             {d.photo
               ? <img src={d.photo} alt={d.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
               : <span className="ed-serif" style={{ fontStyle: "italic", fontSize: 50, color: accentDeep, opacity: .6 }}>{initials(d.name)}</span>}
@@ -152,7 +152,7 @@ export function SitePreviewEditorial({ d }) {
           <h2 className="ed-serif" style={{ fontStyle: "italic", fontWeight: 400, fontSize: 32, margin: "0 0 28px" }}>Especialidades clínicas</h2>
           <div className="ed-spec-grid">
             {d.specialties.map((s, i) => (
-              <div key={i} style={{ position: "relative", overflow: "hidden", background: T.paper, border: `1px solid ${T.line}`, borderRadius: 3, padding: "26px 20px 20px" }}>
+              <div key={i} data-edit={`specialties.${i}`} style={{ position: "relative", overflow: "hidden", background: T.paper, border: `1px solid ${T.line}`, borderRadius: 3, padding: "26px 20px 20px" }}>
                 <span className="ed-serif" style={{ position: "absolute", top: -10, right: 6, fontStyle: "italic", fontSize: 68, color: accent, opacity: .13, lineHeight: 1, userSelect: "none" }}>
                   {String(i + 1).padStart(2, "0")}
                 </span>
@@ -177,7 +177,7 @@ export function SitePreviewEditorial({ d }) {
           <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".1em", textTransform: "uppercase", color: accentDeep, margin: "0 0 8px" }}>Psicologia online</p>
           <h2 className="ed-serif" style={{ fontStyle: "italic", fontWeight: 400, fontSize: 28, margin: "0 0 20px" }}>Por que esse atendimento?</h2>
           {d.benefits.map((b, i) => (
-            <div key={i} style={{ display: "flex", gap: 12, marginBottom: 14 }}>
+            <div key={i} data-edit={`benefits.${i}`} style={{ display: "flex", gap: 12, marginBottom: 14 }}>
               <span style={{ marginTop: 2, flexShrink: 0, width: 20, height: 20, borderRadius: 99, background: accent, display: "flex", alignItems: "center", justifyContent: "center" }}>
                 <Check size={12} color={T.paper} />
               </span>
@@ -191,10 +191,12 @@ export function SitePreviewEditorial({ d }) {
       <div id="metodo" style={{ background: blockDark, color: "#EFE7DA", scrollMarginTop: 70 }}>
         <div style={wrap({ padding: `60px ${CPAD}`, maxWidth: READ_MAX + CONTAINER_PAD * 2 })}>
           <Ornament color={accentSoft} />
-          <h2 className="ed-serif" style={{ fontStyle: "italic", fontWeight: 400, fontSize: 30, margin: "0 0 18px", color: "#FBF5EA" }}>{d.methodTitle}</h2>
-          {d.methodText.split("\n\n").map((p, i) => (
-            <p key={i} style={{ color: "rgba(255,255,255,.72)", margin: "0 0 14px", fontSize: 14.5, lineHeight: 1.7 }}>{p}</p>
-          ))}
+          <h2 className="ed-serif" data-edit="methodTitle" style={{ fontStyle: "italic", fontWeight: 400, fontSize: 30, margin: "0 0 18px", color: "#FBF5EA" }}>{d.methodTitle}</h2>
+          <div data-edit="methodText">
+            {d.methodText.split("\n\n").map((p, i) => (
+              <p key={i} style={{ color: "rgba(255,255,255,.72)", margin: "0 0 14px", fontSize: 14.5, lineHeight: 1.7 }}>{p}</p>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -209,7 +211,7 @@ export function SitePreviewEditorial({ d }) {
         <div>
           <Ornament color={accent} />
           <h2 className="ed-serif" style={{ fontStyle: "italic", fontWeight: 400, fontSize: 28, margin: "0 0 16px" }}>Uma escuta clínica e humana.</h2>
-          <p style={{ color: T.sub, fontSize: 14.5, marginBottom: 22 }}>{d.bio}</p>
+          <p data-edit="bio" style={{ color: T.sub, fontSize: 14.5, marginBottom: 22 }}>{d.bio}</p>
           <Btn primary><MessageCircle size={14} /> Agende uma consulta</Btn>
         </div>
       </div>
@@ -222,7 +224,7 @@ export function SitePreviewEditorial({ d }) {
           {d.faq.map((f, i) => {
             const open = openFaq === i;
             return (
-              <div key={i} style={{ borderTop: `1px solid ${T.line}`, padding: "16px 0" }}>
+              <div key={i} data-edit={`faq.${i}`} style={{ borderTop: `1px solid ${T.line}`, padding: "16px 0" }}>
                 <button onClick={() => setOpenFaq(open ? -1 : i)}
                   style={{ display: "flex", width: "100%", alignItems: "center", justifyContent: "space-between", gap: 12, cursor: "pointer", fontWeight: 600, fontSize: 14.5, background: "none", border: "none", padding: 0, margin: 0, color: T.ink, textAlign: "left", font: "inherit" }}>
                   <span style={{ display: "flex", gap: 12 }}>
@@ -260,7 +262,7 @@ export function SitePreviewEditorial({ d }) {
             <iframe title="Localização do consultório" loading="lazy"
               src={`https://www.google.com/maps?q=${encodeURIComponent(d.endereco)}&output=embed`}
               style={{ width: "100%", height: 200, border: 0, borderRadius: 3, display: "block" }} />
-            <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: T.sub, marginTop: 10 }}>
+            <div data-edit="endereco" style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: T.sub, marginTop: 10 }}>
               <MapPin size={13} />{d.endereco}
             </div>
           </div>
@@ -272,10 +274,10 @@ export function SitePreviewEditorial({ d }) {
           </div>
           <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
             {d.instagram && (
-              <a href={igLink(d.instagram)} target="_blank" rel="noreferrer" style={{ display: "flex", gap: 6, alignItems: "center", fontSize: 12, color: T.sub, textDecoration: "none" }}><Instagram size={14} />{d.instagram}</a>
+              <a href={igLink(d.instagram)} target="_blank" rel="noreferrer" data-edit="instagram" style={{ display: "flex", gap: 6, alignItems: "center", fontSize: 12, color: T.sub, textDecoration: "none" }}><Instagram size={14} />{d.instagram}</a>
             )}
             {d.email && (
-              <a href={`mailto:${d.email}`} style={{ display: "flex", gap: 6, alignItems: "center", fontSize: 12, color: T.sub, textDecoration: "none" }}><Mail size={14} />{d.email}</a>
+              <a href={`mailto:${d.email}`} data-edit="email" style={{ display: "flex", gap: 6, alignItems: "center", fontSize: 12, color: T.sub, textDecoration: "none" }}><Mail size={14} />{d.email}</a>
             )}
           </div>
         </div>

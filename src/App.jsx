@@ -9,6 +9,7 @@ import { supabase } from "./lib/supabase.js";
 import { slugify, withSuffix } from "./lib/slug.js";
 import { SitePreviewEditorial } from "./ThemeEditorial.jsx";
 import { COLOR_SCHEMES, DEFAULT_COLOR_SCHEME, darken } from "./colorSchemes.js";
+import { ListEditor, Label as EdLabel, inputStyle as edInput } from "./editorControls.jsx";
 
 /* ------------------------------------------------------------------ */
 /*  Avence Psi — v2: onboarding conversacional + login por magic link   */
@@ -178,7 +179,7 @@ function SitePreview({ d }) {
   const accentDeep = darken(accent, 0.55);
   const wa = waLink(d.whatsapp, d.waMessage || `Olá, ${firstName(d.name)}! Tenho interesse em agendar uma consulta.`);
   const Btn = ({ children, primary }) => (
-    <a href={wa} target="_blank" rel="noreferrer" style={{
+    <a href={wa} target="_blank" rel="noreferrer" data-edit="whatsapp" style={{
       display: "inline-flex", alignItems: "center", gap: 8, padding: "11px 19px", borderRadius: 999,
       fontSize: 13, fontWeight: 600, textDecoration: "none",
       background: primary ? accent : "transparent", color: primary ? "#fff" : C.ink,
@@ -192,8 +193,8 @@ function SitePreview({ d }) {
       <div style={{ position: "sticky", top: 0, zIndex: 5, background: "rgba(255,255,255,.9)", backdropFilter: "blur(8px)", borderBottom: `1px solid ${C.line}` }}>
         <div style={wrap({ display: "flex", alignItems: "center", justifyContent: "space-between", padding: `14px ${CPAD}` })}>
           {d.logo
-            ? <img src={d.logo} alt={d.name} style={{ height: 28, maxWidth: 160, objectFit: "contain" }} />
-            : <span style={{ fontFamily: "Fraunces, serif", fontWeight: 600, fontSize: 16 }}>{d.name}</span>}
+            ? <img src={d.logo} alt={d.name} data-edit="logo" style={{ height: 28, maxWidth: 160, objectFit: "contain" }} />
+            : <span data-edit="name" style={{ fontFamily: "Fraunces, serif", fontWeight: 600, fontSize: 16 }}>{d.name}</span>}
           <nav className="site-nav" style={{ display: "flex", gap: 16, fontSize: 12, color: C.sub }}>
             <a href="#especialidades" style={{ color: "inherit", textDecoration: "none" }}>Especialidades</a>
             <a href="#metodo" style={{ color: "inherit", textDecoration: "none" }}>Método</a>
@@ -206,14 +207,14 @@ function SitePreview({ d }) {
       {/* hero */}
       <div className="hero-grid" style={wrap({ padding: `46px ${CPAD} 40px`, gap: 28, alignItems: "center" })}>
         <div>
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11, fontWeight: 600, color: accent, background: accentSoft, padding: "5px 11px", borderRadius: 999 }}>
+          <span data-edit="badge" style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11, fontWeight: 600, color: accent, background: accentSoft, padding: "5px 11px", borderRadius: 999 }}>
             <span style={{ width: 6, height: 6, borderRadius: 99, background: accent }} />{d.badge}
           </span>
-          <h1 style={{ fontFamily: "Fraunces, serif", fontWeight: 600, fontSize: 34, lineHeight: 1.08, margin: "16px 0 12px", letterSpacing: "-.01em" }}>{d.headline}</h1>
-          <p style={{ color: C.sub, maxWidth: 380, margin: "0 0 22px" }}>{d.subheadline}</p>
+          <h1 data-edit="headline" style={{ fontFamily: "Fraunces, serif", fontWeight: 600, fontSize: 34, lineHeight: 1.08, margin: "16px 0 12px", letterSpacing: "-.01em" }}>{d.headline}</h1>
+          <p data-edit="subheadline" style={{ color: C.sub, maxWidth: 380, margin: "0 0 22px" }}>{d.subheadline}</p>
           <div style={{ display: "flex", gap: 10 }}><Btn primary>Iniciar jornada <ArrowRight size={14} /></Btn><Btn>Saiba mais</Btn></div>
         </div>
-        <div style={{ aspectRatio: "3/4", borderRadius: 16, overflow: "hidden", background: `linear-gradient(160deg, ${accentSoft}, #E8E4DA)`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div data-edit="photo" style={{ aspectRatio: "3/4", borderRadius: 16, overflow: "hidden", background: `linear-gradient(160deg, ${accentSoft}, #E8E4DA)`, display: "flex", alignItems: "center", justifyContent: "center" }}>
           {d.photo
             ? <img src={d.photo} alt={d.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
             : <span style={{ fontFamily: "Fraunces, serif", fontSize: 46, color: accent, opacity: .55 }}>{initials(d.name)}</span>}
@@ -226,7 +227,7 @@ function SitePreview({ d }) {
           <h2 style={{ fontFamily: "Fraunces, serif", fontSize: 26, fontWeight: 600, margin: "8px 0 22px" }}>Especialidades clínicas</h2>
           <div className="spec-grid" style={{ gap: 14 }}>
             {d.specialties.map((s, i) => (
-              <div key={i} style={{ background: "#fff", border: `1px solid ${C.line}`, borderRadius: 12, padding: "16px" }}>
+              <div key={i} data-edit={`specialties.${i}`} style={{ background: "#fff", border: `1px solid ${C.line}`, borderRadius: 12, padding: "16px" }}>
                 <span style={{ fontFamily: "Fraunces, serif", fontSize: 13, color: accent }}>{String(i + 1).padStart(2, "0")}</span>
                 <h3 style={{ fontSize: 15, fontWeight: 600, margin: "6px 0" }}>{s.t}</h3>
                 <p style={{ fontSize: 12.5, color: C.sub, margin: 0, lineHeight: 1.5 }}>{s.d}</p>
@@ -244,7 +245,7 @@ function SitePreview({ d }) {
           <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".12em", textTransform: "uppercase", color: accent, margin: 0 }}>Psicologia online</p>
           <h2 style={{ fontFamily: "Fraunces, serif", fontSize: 24, fontWeight: 600, margin: "8px 0 16px" }}>Por que esse atendimento?</h2>
           {d.benefits.map((b, i) => (
-            <div key={i} style={{ display: "flex", gap: 10, marginBottom: 12 }}>
+            <div key={i} data-edit={`benefits.${i}`} style={{ display: "flex", gap: 10, marginBottom: 12 }}>
               <span style={{ marginTop: 2, flexShrink: 0, width: 20, height: 20, borderRadius: 99, background: accent, display: "flex", alignItems: "center", justifyContent: "center" }}>
                 <Check size={12} color="#fff" />
               </span>
@@ -257,10 +258,12 @@ function SitePreview({ d }) {
       <div id="metodo" style={{ background: accentDeep, color: "#EDEBE3", scrollMarginTop: 64 }}>
         <div style={wrap({ padding: `40px ${CPAD}` })}>
           <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".12em", textTransform: "uppercase", color: accentSoft, margin: 0 }}>Abordagem</p>
-          <h2 style={{ fontFamily: "Fraunces, serif", fontSize: 26, fontWeight: 600, margin: "8px 0 16px" }}>{d.methodTitle}</h2>
-          {d.methodText.split("\n\n").map((p, i) => (
-            <p key={i} style={{ maxWidth: 560, color: "rgba(255,255,255,.72)", margin: "0 0 12px", fontSize: 13.5, lineHeight: 1.6 }}>{p}</p>
-          ))}
+          <h2 data-edit="methodTitle" style={{ fontFamily: "Fraunces, serif", fontSize: 26, fontWeight: 600, margin: "8px 0 16px" }}>{d.methodTitle}</h2>
+          <div data-edit="methodText">
+            {d.methodText.split("\n\n").map((p, i) => (
+              <p key={i} style={{ maxWidth: 560, color: "rgba(255,255,255,.72)", margin: "0 0 12px", fontSize: 13.5, lineHeight: 1.6 }}>{p}</p>
+            ))}
+          </div>
         </div>
       </div>
       {/* sobre */}
@@ -268,7 +271,7 @@ function SitePreview({ d }) {
         <div>
           <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".12em", textTransform: "uppercase", color: accent, margin: 0 }}>Quem sou eu</p>
           <h2 style={{ fontFamily: "Fraunces, serif", fontSize: 24, fontWeight: 600, margin: "8px 0 14px" }}>Uma escuta clínica e humana.</h2>
-          <p style={{ color: C.sub, fontSize: 13.5, marginBottom: 18 }}>{d.bio}</p>
+          <p data-edit="bio" style={{ color: C.sub, fontSize: 13.5, marginBottom: 18 }}>{d.bio}</p>
           <Btn primary><MessageCircle size={14} /> Agende uma consulta</Btn>
         </div>
         <div style={{ aspectRatio: "4/5", borderRadius: 16, overflow: "hidden" }}>
@@ -282,7 +285,7 @@ function SitePreview({ d }) {
           {d.faq.map((f, i) => {
             const open = openFaq === i;
             return (
-              <div key={i} style={{ borderTop: `1px solid ${C.line}`, padding: "13px 0" }}>
+              <div key={i} data-edit={`faq.${i}`} style={{ borderTop: `1px solid ${C.line}`, padding: "13px 0" }}>
                 <button onClick={() => setOpenFaq(open ? -1 : i)}
                   style={{ display: "flex", width: "100%", alignItems: "center", justifyContent: "space-between", gap: 12, cursor: "pointer", fontWeight: 600, fontSize: 14, background: "none", border: "none", padding: 0, margin: 0, color: C.ink, textAlign: "left", font: "inherit" }}>
                   {f.q}
@@ -303,7 +306,7 @@ function SitePreview({ d }) {
         <div style={{ background: accent, borderRadius: 16, padding: 30, color: "#fff", textAlign: "center" }}>
           <h3 style={{ fontFamily: "Fraunces, serif", fontSize: 24, fontWeight: 600, margin: "0 0 8px" }}>Vamos dar o primeiro passo?</h3>
           <p style={{ color: "rgba(255,255,255,.82)", fontSize: 13, margin: "0 0 18px" }}>Agende uma conversa inicial agora mesmo.</p>
-          <a href={wa} target="_blank" rel="noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "12px 22px", borderRadius: 999, background: "#fff", color: accentDeep, fontWeight: 700, fontSize: 13, textDecoration: "none" }}>
+          <a href={wa} target="_blank" rel="noreferrer" data-edit="whatsapp" style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "12px 22px", borderRadius: 999, background: "#fff", color: accentDeep, fontWeight: 700, fontSize: 13, textDecoration: "none" }}>
             <MessageCircle size={15} /> Falar no WhatsApp
           </a>
         </div>
@@ -315,7 +318,7 @@ function SitePreview({ d }) {
             <iframe title="Localização do consultório" loading="lazy"
               src={`https://www.google.com/maps?q=${encodeURIComponent(d.endereco)}&output=embed`}
               style={{ width: "100%", height: 200, border: 0, borderRadius: 12, display: "block" }} />
-            <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: C.sub, marginTop: 10 }}>
+            <div data-edit="endereco" style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: C.sub, marginTop: 10 }}>
               <MapPin size={13} />{d.endereco}
             </div>
           </div>
@@ -327,10 +330,10 @@ function SitePreview({ d }) {
           </div>
           <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
             {d.instagram && (
-              <a href={igLink(d.instagram)} target="_blank" rel="noreferrer" style={{ display: "flex", gap: 6, alignItems: "center", fontSize: 12, color: C.sub, textDecoration: "none" }}><Instagram size={14} />{d.instagram}</a>
+              <a href={igLink(d.instagram)} target="_blank" rel="noreferrer" data-edit="instagram" style={{ display: "flex", gap: 6, alignItems: "center", fontSize: 12, color: C.sub, textDecoration: "none" }}><Instagram size={14} />{d.instagram}</a>
             )}
             {d.email && (
-              <a href={`mailto:${d.email}`} style={{ display: "flex", gap: 6, alignItems: "center", fontSize: 12, color: C.sub, textDecoration: "none" }}><Mail size={14} />{d.email}</a>
+              <a href={`mailto:${d.email}`} data-edit="email" style={{ display: "flex", gap: 6, alignItems: "center", fontSize: 12, color: C.sub, textDecoration: "none" }}><Mail size={14} />{d.email}</a>
             )}
           </div>
         </div>
@@ -345,6 +348,32 @@ function ThemedSite({ d }) {
   if (d?.theme === "editorial") return <SitePreviewEditorial d={d} />;
   return <SitePreview d={d} />;
 }
+
+// registro dos campos editáveis pelo editor visual: cada data-edit no preview
+// aponta pra uma chave aqui, que diz qual controle a lateral deve abrir.
+// type: text | textarea | image | list. Pra list, withDesc/labels configuram
+// o ListEditor. section só agrupa visualmente o rótulo mostrado.
+const FIELD_REGISTRY = {
+  name: { label: "Nome", type: "text", ph: "Marina Costa" },
+  badge: { label: "Selo de modalidade", type: "text", ph: "Atendimento 100% Online" },
+  headline: { label: "Headline (título principal)", type: "textarea", ph: "Equilíbrio emocional..." },
+  subheadline: { label: "Subtítulo", type: "textarea", ph: "Psicoterapia baseada em..." },
+  bio: { label: "Sobre você (bio)", type: "textarea", ph: "Escreva sobre você..." },
+  methodTitle: { label: "Título da abordagem", type: "text", ph: "O que é a TCC?" },
+  methodText: { label: "Texto da abordagem", type: "textarea", ph: "Descreva sua abordagem..." },
+  photo: { label: "Foto principal", type: "image" },
+  logo: { label: "Logo", type: "image" },
+  whatsapp: { label: "WhatsApp (com DDD)", type: "text", ph: "51 99999-9999" },
+  instagram: { label: "Instagram", type: "text", ph: "@seuperfil" },
+  email: { label: "E-mail", type: "text", ph: "voce@email.com" },
+  endereco: { label: "Endereço do consultório", type: "text", ph: "Rua, número, cidade" },
+  specialties: { label: "Especialidades", type: "list", withDesc: true, labels: ["Tema (ex: Ansiedade)", "Descrição curta"] },
+  benefits: { label: "Diferenciais", type: "list", withDesc: true, labels: ["Título (ex: Conforto)", "Descrição curta"] },
+  faq: { label: "Perguntas frequentes", type: "list", withDesc: false, labels: ["Pergunta", "Resposta"] },
+};
+// itens de lista chegam como "specialties.0.t" — normaliza pro campo-base
+// (specialties) que é o que o controle de lista edita por inteiro.
+const baseField = (path) => (path || "").split(".")[0];
 
 /* --------- Shell e Brand em escopo de módulo (estáveis) ---------- */
 /* Definir estes DENTRO do App faz o React remontar tudo a cada tecla, */
@@ -395,6 +424,7 @@ const Brand = () => (
 /* independente. Usa portal do React pra montar o mesmo componente ao vivo   */
 /* dentro do documento do iframe, sem perder reatividade (troca de           */
 /* tema/paleta continua atualizando o preview instantaneamente).             */
+const EDIT_HL = "#2F6FED"; // cor do contorno do editor — azul fixo, destaca em qualquer paleta
 const PREVIEW_FRAME_CSS = `
   @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600&family=Inter:wght@400;500;600;700&display=swap');
   :root { --cpad: 32px; }
@@ -413,6 +443,10 @@ const PREVIEW_FRAME_CSS = `
     .diff-grid > div:first-child { width: 100%; max-width: 420px; margin: 0 auto 20px; }
     .site-nav { display: none !important; }
   }
+  /* editor visual: só valem quando body.ed-active */
+  body.ed-active [data-edit]{ cursor: pointer; }
+  body.ed-active [data-edit]:hover{ outline: 2px dashed ${EDIT_HL}; outline-offset: 2px; border-radius: 4px; }
+  body.ed-active [data-edit].ed-selected{ outline: 2px solid ${EDIT_HL}; outline-offset: 2px; border-radius: 4px; }
 `;
 
 const PREVIEW_DEVICES = {
@@ -426,7 +460,7 @@ const PREVIEW_DEVICES = {
 /* anterior (crescer o iframe até a altura total do conteúdo e deixar o        */
 /* container de fora rolar) dava barra de rolagem fantasma na borda e sobra    */
 /* de espaço no fim das telas menores.                                         */
-function PreviewFrame({ width, radius, children }) {
+function PreviewFrame({ width, radius, children, editMode, selectedField, onSelect }) {
   const [iframeEl, setIframeEl] = useState(null);
   const [mountNode, setMountNode] = useState(null);
 
@@ -440,6 +474,35 @@ function PreviewFrame({ width, radius, children }) {
     doc.head.appendChild(style);
     setMountNode(doc.body);
   }, [iframeEl]);
+
+  // liga/desliga o modo de edição no body do iframe + handler de clique
+  // delegado. Em editMode, clicar num elemento com data-edit seleciona; e
+  // qualquer link (CTA do WhatsApp) tem o clique bloqueado pra não navegar.
+  useEffect(() => {
+    if (!mountNode) return;
+    mountNode.classList.toggle("ed-active", !!editMode);
+    if (!editMode) return;
+    const onClick = (e) => {
+      const link = e.target.closest("a");
+      if (link) { e.preventDefault(); }
+      const el = e.target.closest("[data-edit]");
+      if (el) { e.preventDefault(); e.stopPropagation(); onSelect?.(el.dataset.edit); }
+    };
+    mountNode.addEventListener("click", onClick, true);
+    return () => mountNode.removeEventListener("click", onClick, true);
+  }, [mountNode, editMode, onSelect]);
+
+  // marca o elemento selecionado (contorno sólido). Só o campo-base importa
+  // pra listas — todos os itens da mesma lista destacam juntos.
+  useEffect(() => {
+    if (!mountNode) return;
+    mountNode.querySelectorAll(".ed-selected").forEach((el) => el.classList.remove("ed-selected"));
+    if (!editMode || !selectedField) return;
+    const base = (selectedField || "").split(".")[0];
+    mountNode.querySelectorAll("[data-edit]").forEach((el) => {
+      if ((el.dataset.edit || "").split(".")[0] === base) el.classList.add("ed-selected");
+    });
+  }, [mountNode, editMode, selectedField, children]);
 
   return (
     <>
@@ -461,6 +524,8 @@ export default function App() {
   const [verifyingOtp, setVerifyingOtp] = useState(false);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [previewDevice, setPreviewDevice] = useState("desktop");
+  const [editMode, setEditMode] = useState(false);
+  const [selectedField, setSelectedField] = useState(null); // caminho do data-edit, ex "headline" ou "faq.1.q"
   const [publishing, setPublishing] = useState(false);
   const [publishedUrl, setPublishedUrl] = useState(null);
   const [siteSlug, setSiteSlug] = useState(null);
@@ -495,6 +560,8 @@ export default function App() {
   const fileRef = useRef(null);
   const scrollRef = useRef(null);
   const composerRef = useRef(null);
+  const saveTimerRef = useRef(null); // debounce das edições ao vivo do editor
+  const editFileRef = useRef(null); // file input do editor visual (foto/logo)
 
   const step = FLOW[stepIdx];
   const editingFlowStep = editingKey ? FLOW.find((f) => f.key === editingKey) : null;
@@ -650,6 +717,36 @@ export default function App() {
     const updated = { ...site, colorScheme };
     setSite(updated);
     saveSite(siteStatus, updated, answers);
+  };
+
+  // edição ao vivo de um campo do site (usada pelo editor visual). Atualiza o
+  // estado na hora (preview reflete) e agenda a gravação com debounce pra não
+  // bater no Supabase a cada tecla. Mantém o status atual (publicado continua
+  // publicado). "value" pra listas é o array inteiro (o ListEditor devolve).
+  const editField = (field, value) => {
+    const updated = { ...site, [field]: value };
+    setSite(updated);
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => {
+      saveSite(siteStatus, updated, answers).then((slug) => {
+        if (slug && siteStatus === "published") setPublishedUrl(`${window.location.origin}/${slug}`);
+      });
+    }, 800);
+  };
+
+  const toggleEditMode = () => {
+    setEditMode((v) => !v);
+    setSelectedField(null);
+  };
+
+  // lê o arquivo escolhido no editor e grava no campo selecionado (photo/logo)
+  const editImageFile = (e) => {
+    const f = e.target.files?.[0];
+    if (!f || !selectedField) return;
+    const r = new FileReader();
+    r.onload = () => editField(baseField(selectedField), r.result);
+    r.readAsDataURL(f);
+    e.target.value = ""; // permite reescolher o mesmo arquivo
   };
 
   // grava (ou atualiza) a linha em sites com o status pedido. Usado tanto
@@ -1464,6 +1561,13 @@ export default function App() {
                   </button>
                 </>
               )}
+              <button onClick={toggleEditMode}
+                style={{ padding: "11px 18px", borderRadius: 999, cursor: "pointer", fontWeight: 600, fontSize: 13.5, whiteSpace: "nowrap", display: "inline-flex", alignItems: "center", gap: 7,
+                  border: editMode ? "none" : `1px solid ${C.line}`,
+                  background: editMode ? C.sage : "#fff",
+                  color: editMode ? "#fff" : C.ink }}>
+                <Pencil size={14} /> {editMode ? "Concluir edição" : "Editar"}
+              </button>
               <button onClick={restartQuiz}
                 style={{ padding: "11px 18px", borderRadius: 999, border: `1px solid ${C.line}`, background: "#fff", color: C.ink, fontWeight: 600, fontSize: 13.5, cursor: "pointer", whiteSpace: "nowrap" }}>
                 Recomeçar
@@ -1516,42 +1620,94 @@ export default function App() {
         </div>
         <div className="site-editor-cols" style={{ display: "flex", gap: 20, alignItems: "flex-start" }}>
           <div className="site-sidebar fade" style={{ width: 224, flexShrink: 0, position: "sticky", top: 22, display: "flex", flexDirection: "column", gap: 22 }}>
-            <div>
-              <div style={{ fontSize: 12, color: C.sub, fontWeight: 600, marginBottom: 8, textTransform: "uppercase", letterSpacing: ".04em" }}>Tema</div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                {Object.entries(THEMES).map(([key, label]) => (
-                  <button key={key} onClick={() => changeTheme(key)}
-                    style={{
-                      padding: "9px 13px", borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: "pointer", textAlign: "left",
-                      border: `1px solid ${(site?.theme || "classic") === key ? C.dark : C.line}`,
-                      background: (site?.theme || "classic") === key ? C.dark : "#fff",
-                      color: (site?.theme || "classic") === key ? "#fff" : C.ink,
-                    }}>
-                    {label}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div>
-              <div style={{ fontSize: 12, color: C.sub, fontWeight: 600, marginBottom: 8, textTransform: "uppercase", letterSpacing: ".04em" }}>Paleta</div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                {Object.keys(COLOR_SCHEMES).map((label) => {
-                  const on = (site?.colorScheme || DEFAULT_COLOR_SCHEME) === label;
-                  return (
-                    <button key={label} onClick={() => changeColorScheme(label)}
-                      style={{
-                        display: "flex", alignItems: "center", gap: 8, padding: "9px 13px", borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: "pointer", textAlign: "left",
-                        border: `1px solid ${on ? C.dark : C.line}`,
-                        background: on ? C.dark : "#fff",
-                        color: on ? "#fff" : C.ink,
-                      }}>
-                      <span style={{ width: 14, height: 14, borderRadius: 999, background: COLOR_SCHEMES[label].accent, flexShrink: 0 }} />
-                      {label}
+            {editMode && selectedField ? (
+              /* --- editor do campo selecionado --- */
+              (() => {
+                const base = baseField(selectedField);
+                const reg = FIELD_REGISTRY[base];
+                if (!reg) return null;
+                return (
+                  <div>
+                    <button onClick={() => setSelectedField(null)}
+                      style={{ display: "inline-flex", alignItems: "center", gap: 5, background: "none", border: "none", padding: 0, marginBottom: 12, color: C.sub, fontSize: 12.5, fontWeight: 600, cursor: "pointer" }}>
+                      <ArrowRight size={13} style={{ transform: "rotate(180deg)" }} /> Voltar
                     </button>
-                  );
-                })}
-              </div>
-            </div>
+                    <div style={{ fontSize: 12, color: C.sub, fontWeight: 600, marginBottom: 8, textTransform: "uppercase", letterSpacing: ".04em" }}>{reg.label}</div>
+                    {reg.type === "text" && (
+                      <input value={site?.[base] || ""} onChange={(e) => editField(base, e.target.value)} placeholder={reg.ph} style={edInput(C)} />
+                    )}
+                    {reg.type === "textarea" && (
+                      <textarea value={site?.[base] || ""} onChange={(e) => editField(base, e.target.value)} placeholder={reg.ph} rows={5} style={{ ...edInput(C), resize: "vertical", lineHeight: 1.5 }} />
+                    )}
+                    {reg.type === "list" && (
+                      <ListEditor items={site?.[base] || []} onChange={(arr) => editField(base, arr)} withDesc={reg.withDesc} labels={reg.labels} C={C} />
+                    )}
+                    {reg.type === "image" && (
+                      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                        {site?.[base] && <img src={site[base]} alt="" style={{ width: "100%", borderRadius: 10, border: `1px solid ${C.line}` }} />}
+                        <input type="file" accept="image/*" ref={editFileRef} style={{ display: "none" }} onChange={editImageFile} />
+                        <button onClick={() => editFileRef.current?.click()}
+                          style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 7, padding: "10px 14px", borderRadius: 10, border: `1px solid ${C.sage}`, background: C.sageSoft, color: C.sage, fontWeight: 600, fontSize: 13, cursor: "pointer" }}>
+                          <ImageIcon size={15} /> {site?.[base] ? "Trocar imagem" : "Escolher imagem"}
+                        </button>
+                        <input value={/^data:/.test(site?.[base] || "") ? "" : (site?.[base] || "")} onChange={(e) => editField(base, e.target.value)} placeholder="ou cole o link de uma imagem" style={edInput(C)} />
+                        {site?.[base] && (
+                          <button onClick={() => editField(base, "")}
+                            style={{ padding: "8px 14px", borderRadius: 10, border: `1px solid ${C.line}`, background: "#fff", color: C.sub, fontWeight: 600, fontSize: 12.5, cursor: "pointer" }}>
+                            Remover
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()
+            ) : (
+              /* --- sem seleção: Tema + Paleta (+ dica em editMode) --- */
+              <>
+                {editMode && (
+                  <div style={{ padding: "10px 12px", borderRadius: 10, background: C.sageSoft, border: `1px solid ${C.line}`, fontSize: 12.5, color: C.sage, fontWeight: 600, lineHeight: 1.4 }}>
+                    Clique num elemento do site pra editá-lo.
+                  </div>
+                )}
+                <div>
+                  <div style={{ fontSize: 12, color: C.sub, fontWeight: 600, marginBottom: 8, textTransform: "uppercase", letterSpacing: ".04em" }}>Tema</div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                    {Object.entries(THEMES).map(([key, label]) => (
+                      <button key={key} onClick={() => changeTheme(key)}
+                        style={{
+                          padding: "9px 13px", borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: "pointer", textAlign: "left",
+                          border: `1px solid ${(site?.theme || "classic") === key ? C.dark : C.line}`,
+                          background: (site?.theme || "classic") === key ? C.dark : "#fff",
+                          color: (site?.theme || "classic") === key ? "#fff" : C.ink,
+                        }}>
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <div style={{ fontSize: 12, color: C.sub, fontWeight: 600, marginBottom: 8, textTransform: "uppercase", letterSpacing: ".04em" }}>Paleta</div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                    {Object.keys(COLOR_SCHEMES).map((label) => {
+                      const on = (site?.colorScheme || DEFAULT_COLOR_SCHEME) === label;
+                      return (
+                        <button key={label} onClick={() => changeColorScheme(label)}
+                          style={{
+                            display: "flex", alignItems: "center", gap: 8, padding: "9px 13px", borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: "pointer", textAlign: "left",
+                            border: `1px solid ${on ? C.dark : C.line}`,
+                            background: on ? C.dark : "#fff",
+                            color: on ? "#fff" : C.ink,
+                          }}>
+                          <span style={{ width: 14, height: 14, borderRadius: 999, background: COLOR_SCHEMES[label].accent, flexShrink: 0 }} />
+                          {label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </>
+            )}
           </div>
           <div className="fade" style={{
             flex: 1, minWidth: 0, height: "calc(100vh - 150px)",
@@ -1561,7 +1717,8 @@ export default function App() {
             display: "flex", justifyContent: "center",
             padding: previewDevice === "desktop" ? 0 : 20,
           }}>
-            <PreviewFrame width={PREVIEW_DEVICES[previewDevice].width} radius={previewDevice === "desktop" ? 0 : 10}>
+            <PreviewFrame width={PREVIEW_DEVICES[previewDevice].width} radius={previewDevice === "desktop" ? 0 : 10}
+              editMode={editMode} selectedField={selectedField} onSelect={setSelectedField}>
               <ThemedSite d={site} />
             </PreviewFrame>
           </div>
