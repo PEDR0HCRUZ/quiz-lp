@@ -982,8 +982,8 @@ export default function App() {
               Mandamos um código de acesso pra <b>{lead.email}</b>. Copie e cole aqui embaixo pra continuar.
             </p>
             <div style={{ display: "flex", gap: 8 }}>
-              <input value={otpCode} onChange={(e) => setOtpCode(e.target.value)} placeholder="000000"
-                inputMode="numeric" maxLength={6}
+              <input value={otpCode} onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, "").slice(0, 8))} placeholder="00000000"
+                inputMode="numeric"
                 onKeyDown={(e) => e.key === "Enter" && verifyCode()}
                 style={{ flex: 1, minWidth: 0, padding: "12px 15px", borderRadius: 11, border: `1px solid ${C.line}`, background: "#fff", fontSize: 16, letterSpacing: ".1em", textAlign: "center", fontFamily: "Inter" }} />
               <button onClick={verifyCode} disabled={!otpCode.trim() || verifyingOtp}
