@@ -1,10 +1,15 @@
 import React, { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import {
   ArrowRight, Send, MessageCircle, Instagram, Mail, Check,
-  Sparkles, Loader2, Pencil, X, Plus, Image as ImageIcon,
+  Sparkles, Loader2, Pencil, X, Plus, Image as ImageIcon, MapPin,
+  LogOut, ChevronDown, Inbox, Monitor, Tablet, Smartphone, Copy, ExternalLink,
 } from "lucide-react";
 import { supabase } from "./lib/supabase.js";
 import { slugify, withSuffix } from "./lib/slug.js";
+import { SitePreviewEditorial } from "./ThemeEditorial.jsx";
+import { COLOR_SCHEMES, DEFAULT_COLOR_SCHEME, darken } from "./colorSchemes.js";
+import { ListEditor, Label as EdLabel, inputStyle as edInput } from "./editorControls.jsx";
 
 /* ------------------------------------------------------------------ */
 /*  Avence Psi — v2: onboarding conversacional + login por magic link   */
@@ -22,6 +27,10 @@ const C = {
 // largura máxima do conteúdo das seções do site publicado + respiro lateral em telas pequenas
 const CONTAINER_MAX = 1216;
 const CONTAINER_PAD = 32;
+// respiro lateral como CSS var: 32px no desktop, 16px no mobile (a var é
+// redefinida por media query nos blocos de <style>). Usado inline, então
+// a media query consegue "vazar" pra dentro do estilo inline via a variável.
+const CPAD = `var(--cpad, ${CONTAINER_PAD}px)`;
 
 /* ------------------------- template base -------------------------- */
 const DEFAULTS = {
@@ -40,7 +49,6 @@ const DEFAULTS = {
     { t: "Economia", d: "Sem deslocamento nem tempo no trânsito." },
     { t: "Privacidade", d: "Plataforma de vídeo segura e criptografada." },
   ],
-  aviso: "Atendimento particular. Recibo emitido para reembolso.",
   methodTitle: "Sobre a abordagem",
   methodText: "Uma escuta clínica baseada em evidências, colaborativa e respeitosa com o seu tempo.\n\nO trabalho é conjunto: identificamos padrões que geram sofrimento e desenvolvemos recursos mais saudáveis.",
   bio: "Busco proporcionar um ambiente acolhedor e seguro, onde você possa se expressar livremente.",
@@ -74,12 +82,43 @@ const FLOW = [
   { key: "specialty", bot: "Prazer, {first}! 🌱 Qual é a sua especialidade?", type: "specialty" },
   { key: "crp", bot: "E o seu registro profissional?", type: "crp" },
   { key: "modalidade", bot: "E você atende de que forma?", type: "chips", options: ["100% Online", "Presencial", "Híbrido"] },
+  { key: "endereco", bot: "Qual o endereço do consultório? Vai aparecer no rodapé do site, com um mapa.", ph: "Rua, número, bairro, cidade - UF", type: "text",
+    skipIf: (a) => a.modalidade === "100% Online" },
   { key: "abordagem", bot: "Qual é a sua abordagem principal?", type: "chips", options: ["TCC", "Psicanálise", "Humanista", "Gestalt"], allowText: true, ph: "Outra..." },
   { key: "temas", bot: "Quais temas você mais atende? Selecione quantos quiser — e adicione os seus no campo abaixo.", type: "cards",
     options: ["Ansiedade", "Depressão", "Autoestima", "Autoconhecimento", "Relacionamentos", "Luto", "Estresse / Burnout", "Traumas", "Síndrome do pânico", "TOC", "Fobias", "Maternidade / Parentalidade"] },
+  { key: "colorScheme", bot: "Vamos escolher a paleta de cores do site. Dá pra trocar depois.", type: "colors", options: Object.keys(COLOR_SCHEMES) },
   { key: "tom", bot: "Que tom combina mais com você?", type: "chips", options: ["Acolhedor", "Leve e próximo", "Direto", "Técnico"] },
-  { key: "sobre", bot: "Me conta em poucas frases o que te move como profissional. Se quiser, use um dos começos abaixo — eu deixo bonito depois.", ph: "escreva do seu jeito...", type: "text",
-    starters: ["Acredito que", "O mundo pode ser melhor através da", "Meu propósito é", "Escolhi essa profissão porque"] },
+  { key: "sobre", bot: "Me conta em poucas frases o que te move como profissional. Se quiser, use um dos começos abaixo — eu já deixo uma frase pronta (no tom que você escolheu) que você pode editar.", ph: "escreva do seu jeito...", type: "text",
+    // uma versão de cada começo por tom (etapa anterior) — pra sugestão
+    // combinar com o jeito que ela disse que queria soar, não só um texto genérico.
+    startersByTone: {
+      "Acolhedor": [
+        { label: "Acredito que…", template: "Acredito que cada pessoa carrega dentro de si a capacidade de se reconectar consigo mesma, compreender suas próprias dores com carinho e construir, no seu tempo, uma vida com mais leveza, sentido e acolhimento para lidar com os desafios do dia a dia." },
+        { label: "O mundo pode ser melhor através da…", template: "O mundo pode ser melhor através da escuta acolhedora, do cuidado genuíno e de relações mais gentis entre as pessoas — por isso acredito tanto no valor da terapia como um espaço seguro de transformação, capaz de gerar mudanças reais na forma como nos relacionamos com nós mesmos e com o outro." },
+        { label: "Meu propósito é…", template: "Meu propósito é acompanhar pessoas em momentos delicados de transformação, oferecendo um colo emocional, um espaço seguro e livre de julgamentos para que possam se conhecer melhor, entender seus padrões e desenvolver recursos mais saudáveis para viver com mais autonomia e bem-estar." },
+        { label: "Escolhi essa profissão porque…", template: "Escolhi essa profissão porque acredito no poder da escuta afetuosa e no impacto que ela pode ter na vida das pessoas — ao longo da minha trajetória, percebi que oferecer um espaço de cuidado genuíno é capaz de transformar histórias e ajudar cada pessoa a se relacionar com mais gentileza consigo mesma." },
+      ],
+      "Leve e próximo": [
+        { label: "Acredito que…", template: "Acredito que a gente não precisa ter tudo resolvido pra merecer um espaço de escuta — cada pessoa tem sua própria bagagem, seu próprio ritmo, e é justamente por isso que gosto tanto de caminhar ao lado de quem topa se olhar com mais gentileza e leveza no dia a dia." },
+        { label: "O mundo pode ser melhor através da…", template: "O mundo pode ser melhor através da conversa sincera, daquele papo que não julga e que ajuda a gente a se entender um pouco mais. É por isso que acredito na terapia como um espaço leve, próximo e sem formalidade, onde dá pra ser você mesma de verdade e ainda assim crescer." },
+        { label: "Meu propósito é…", template: "Meu propósito é estar perto de quem tá passando por uma fase de mudança, sem cobrança e sem julgamento — só presença de verdade. Gosto de pensar a terapia como uma conversa boa, daquelas que ajudam a clarear a cabeça e encontrar um caminho mais leve pra seguir em frente." },
+        { label: "Escolhi essa profissão porque…", template: "Escolhi essa profissão porque sempre gostei de ouvir as pessoas de verdade, sem pressa e sem julgamento. Com o tempo percebi que esse tipo de escuta próxima e sem formalidade pode fazer uma diferença enorme na vida de alguém — e é exatamente isso que quero oferecer." },
+      ],
+      "Direto": [
+        { label: "Acredito que…", template: "Acredito que mudança real exige clareza, compromisso e ação — não só reflexão. Meu trabalho é ajudar você a identificar o que está travando seu progresso, entender os padrões por trás disso e sair da sessão com direções concretas para aplicar no seu dia a dia." },
+        { label: "O mundo pode ser melhor através da…", template: "O mundo pode ser melhor através da terapia orientada a resultados — sem enrolação, sem sessões que não levam a lugar nenhum. Trabalho para que cada encontro tenha um propósito claro e que você saia com ferramentas práticas para lidar com o que precisa ser resolvido." },
+        { label: "Meu propósito é…", template: "Meu propósito é ajudar você a sair do ciclo em que está preso e avançar de forma objetiva. Não acredito em terapia sem direção — cada sessão tem um foco, e o objetivo é sempre te aproximar de mudanças reais e mensuráveis na sua vida, sem enrolação." },
+        { label: "Escolhi essa profissão porque…", template: "Escolhi essa profissão porque quero gerar resultado de verdade na vida das pessoas, não só oferecer um espaço para desabafar. Acredito em terapia com direção clara, metas definidas e progresso que pode ser sentido e percebido ao longo do processo." },
+      ],
+      "Técnico": [
+        { label: "Acredito que…", template: "Acredito que a prática clínica deve ser fundamentada em evidências científicas sólidas, com metodologia clara e acompanhamento sistemático da evolução do paciente. Minha abordagem combina rigor técnico e responsabilidade ética para garantir resultados consistentes e mensuráveis." },
+        { label: "O mundo pode ser melhor através da…", template: "O mundo pode ser melhor através da aplicação criteriosa de métodos terapêuticos validados cientificamente, com protocolos estruturados e avaliação contínua de progresso. Defendo uma prática clínica pautada em evidências, ética profissional e atualização constante do conhecimento técnico." },
+        { label: "Meu propósito é…", template: "Meu propósito é conduzir o processo terapêutico com base em fundamentação técnica sólida, utilizando instrumentos de avaliação adequados e intervenções baseadas em evidências científicas, sempre respeitando as diretrizes éticas da profissão e as particularidades de cada caso clínico." },
+        { label: "Escolhi essa profissão porque…", template: "Escolhi essa profissão porque me interesso profundamente pelos processos cognitivos e comportamentais humanos, e pela possibilidade de aplicar conhecimento científico validado para promover mudanças estruturadas e duradouras na vida dos pacientes, com metodologia clara e mensurável." },
+      ],
+    } },
+  { key: "logo", bot: "Você já tem uma logo? Se tiver, me manda o arquivo (de preferência em PNG). Se não tiver, sem problema — seu nome aparece no topo do site.", type: "image" },
   { key: "photo", bot: "Pra deixar o site com a sua cara, envie uma foto profissional. Ela vai aparecer no topo e na seção “sobre”. Pode pular e adicionar depois.", type: "image" },
   { key: "whatsapp", bot: "Quase lá. Qual seu WhatsApp, com DDD?", ph: "51 99999-9999", type: "text" },
   { key: "instagram", bot: "Por fim, seu Instagram — pra fechar o rodapé.", ph: "@seuperfil", type: "text" },
@@ -97,9 +136,21 @@ const uid = () => ++_mid;
 const CARDS_STEP = FLOW.find((f) => f.type === "cards");
 const waLink = (num, msg) =>
   `https://wa.me/${(num || "").replace(/\D/g, "")}?text=${encodeURIComponent(msg || "")}`;
+// aceita "@fulana", "fulana" ou um link já pronto e sempre devolve uma URL válida do perfil
+const igLink = (handle) => {
+  const h = (handle || "").trim();
+  if (!h) return "";
+  if (/^https?:\/\//i.test(h)) return h;
+  return `https://instagram.com/${h.replace(/^@/, "")}`;
+};
 const initials = (n) =>
   (n || "").split(" ").filter(Boolean).slice(0, 2).map((w) => w[0]).join("").toUpperCase();
 const firstName = (n) => (n || "").trim().split(" ")[0] || "";
+// nome é exibido publicamente no site — força "Primeira Maiúscula" em cada
+// palavra independente de como a pessoa digitou (tudo minúsculo, tudo
+// maiúsculo etc.)
+const titleCase = (n) =>
+  (n || "").trim().split(/\s+/).map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(" ");
 // máscara de celular BR: "51999998888" -> "51 99999-9888"
 const formatPhoneBR = (raw) => {
   const d = (raw || "").replace(/\D/g, "").slice(0, 11);
@@ -121,51 +172,63 @@ function buildCopy(input) {
 
 /* =========================== SITE PREVIEW ========================== */
 function SitePreview({ d }) {
+  const [openFaq, setOpenFaq] = useState(0);
+  const { accent, accentSoft } = COLOR_SCHEMES[d.colorScheme] || COLOR_SCHEMES[DEFAULT_COLOR_SCHEME];
+  // versão escura do accent pros blocos de contraste (metodologia, CTA) — antes
+  // eram preto fixo + verde-limão da Avence, que ignoravam a paleta escolhida.
+  const accentDeep = darken(accent, 0.55);
   const wa = waLink(d.whatsapp, d.waMessage || `Olá, ${firstName(d.name)}! Tenho interesse em agendar uma consulta.`);
   const Btn = ({ children, primary }) => (
-    <a href={wa} target="_blank" rel="noreferrer" style={{
+    <a href={wa} target="_blank" rel="noreferrer" data-edit="whatsapp" style={{
       display: "inline-flex", alignItems: "center", gap: 8, padding: "11px 19px", borderRadius: 999,
       fontSize: 13, fontWeight: 600, textDecoration: "none",
-      background: primary ? C.sage : "transparent", color: primary ? "#fff" : C.ink,
+      background: primary ? accent : "transparent", color: primary ? "#fff" : C.ink,
       border: primary ? "none" : `1px solid ${C.line}`,
     }}>{children}</a>
   );
-  const wrap = (extra) => ({ maxWidth: CONTAINER_MAX, margin: "0 auto", padding: `0 ${CONTAINER_PAD}px`, ...extra });
+  const wrap = (extra) => ({ maxWidth: CONTAINER_MAX, margin: "0 auto", padding: `0 ${CPAD}`, ...extra });
   return (
     <div style={{ fontFamily: "Inter, system-ui, sans-serif", color: C.ink, background: "#fff", fontSize: 14, lineHeight: 1.55 }}>
       {/* header */}
       <div style={{ position: "sticky", top: 0, zIndex: 5, background: "rgba(255,255,255,.9)", backdropFilter: "blur(8px)", borderBottom: `1px solid ${C.line}` }}>
-        <div style={wrap({ display: "flex", alignItems: "center", justifyContent: "space-between", padding: `14px ${CONTAINER_PAD}px` })}>
-          <span style={{ fontFamily: "Fraunces, serif", fontWeight: 600, fontSize: 16 }}>{d.name}</span>
-          <nav className="site-nav" style={{ display: "flex", gap: 16, fontSize: 12, color: C.sub }}><span>Especialidades</span><span>Método</span><span>Sobre</span><span>Dúvidas</span></nav>
+        <div style={wrap({ display: "flex", alignItems: "center", justifyContent: "space-between", padding: `14px ${CPAD}` })}>
+          {d.logo
+            ? <img src={d.logo} alt={d.name} data-edit="logo" style={{ height: 28, maxWidth: 160, objectFit: "contain" }} />
+            : <span data-edit="name" style={{ fontFamily: "Fraunces, serif", fontWeight: 600, fontSize: 16 }}>{d.name}</span>}
+          <nav className="site-nav" style={{ display: "flex", gap: 16, fontSize: 12, color: C.sub }}>
+            <a href="#especialidades" style={{ color: "inherit", textDecoration: "none" }}>Especialidades</a>
+            <a href="#metodo" style={{ color: "inherit", textDecoration: "none" }}>Método</a>
+            <a href="#sobre" style={{ color: "inherit", textDecoration: "none" }}>Sobre</a>
+            <a href="#duvidas" style={{ color: "inherit", textDecoration: "none" }}>Dúvidas</a>
+          </nav>
           <Btn primary><MessageCircle size={14} /> Agendar</Btn>
         </div>
       </div>
       {/* hero */}
-      <div className="hero-grid" style={wrap({ padding: `46px ${CONTAINER_PAD}px 40px`, gap: 28, alignItems: "center" })}>
+      <div className="hero-grid" style={wrap({ padding: `46px ${CPAD} 40px`, gap: 28, alignItems: "center" })}>
         <div>
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11, fontWeight: 600, color: C.sage, background: C.sageSoft, padding: "5px 11px", borderRadius: 999 }}>
-            <span style={{ width: 6, height: 6, borderRadius: 99, background: C.sage }} />{d.badge}
+          <span data-edit="badge" style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11, fontWeight: 600, color: accent, background: accentSoft, padding: "5px 11px", borderRadius: 999 }}>
+            <span style={{ width: 6, height: 6, borderRadius: 99, background: accent }} />{d.badge}
           </span>
-          <h1 style={{ fontFamily: "Fraunces, serif", fontWeight: 600, fontSize: 34, lineHeight: 1.08, margin: "16px 0 12px", letterSpacing: "-.01em" }}>{d.headline}</h1>
-          <p style={{ color: C.sub, maxWidth: 380, margin: "0 0 22px" }}>{d.subheadline}</p>
+          <h1 data-edit="headline" style={{ fontFamily: "Fraunces, serif", fontWeight: 600, fontSize: 34, lineHeight: 1.08, margin: "16px 0 12px", letterSpacing: "-.01em" }}>{d.headline}</h1>
+          <p data-edit="subheadline" style={{ color: C.sub, maxWidth: 380, margin: "0 0 22px" }}>{d.subheadline}</p>
           <div style={{ display: "flex", gap: 10 }}><Btn primary>Iniciar jornada <ArrowRight size={14} /></Btn><Btn>Saiba mais</Btn></div>
         </div>
-        <div style={{ aspectRatio: "3/4", borderRadius: 16, overflow: "hidden", background: `linear-gradient(160deg, ${C.sageSoft}, #E8E4DA)`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div data-edit="photo" style={{ aspectRatio: "3/4", borderRadius: 16, overflow: "hidden", background: `linear-gradient(160deg, ${accentSoft}, #E8E4DA)`, display: "flex", alignItems: "center", justifyContent: "center" }}>
           {d.photo
             ? <img src={d.photo} alt={d.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-            : <span style={{ fontFamily: "Fraunces, serif", fontSize: 46, color: C.sage, opacity: .55 }}>{initials(d.name)}</span>}
+            : <span style={{ fontFamily: "Fraunces, serif", fontSize: 46, color: accent, opacity: .55 }}>{initials(d.name)}</span>}
         </div>
       </div>
       {/* especialidades */}
-      <div style={{ background: C.panel }}>
-        <div style={wrap({ padding: `40px ${CONTAINER_PAD}px` })}>
-          <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".12em", textTransform: "uppercase", color: C.sage, margin: 0 }}>Foco em resultados</p>
+      <div id="especialidades" style={{ background: C.panel, scrollMarginTop: 64 }}>
+        <div style={wrap({ padding: `40px ${CPAD}` })}>
+          <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".12em", textTransform: "uppercase", color: accent, margin: 0 }}>Foco em resultados</p>
           <h2 style={{ fontFamily: "Fraunces, serif", fontSize: 26, fontWeight: 600, margin: "8px 0 22px" }}>Especialidades clínicas</h2>
           <div className="spec-grid" style={{ gap: 14 }}>
             {d.specialties.map((s, i) => (
-              <div key={i} style={{ background: "#fff", border: `1px solid ${C.line}`, borderRadius: 12, padding: "16px" }}>
-                <span style={{ fontFamily: "Fraunces, serif", fontSize: 13, color: C.sage }}>{String(i + 1).padStart(2, "0")}</span>
+              <div key={i} data-edit={`specialties.${i}`} style={{ background: "#fff", border: `1px solid ${C.line}`, borderRadius: 12, padding: "16px" }}>
+                <span style={{ fontFamily: "Fraunces, serif", fontSize: 13, color: accent }}>{String(i + 1).padStart(2, "0")}</span>
                 <h3 style={{ fontSize: 15, fontWeight: 600, margin: "6px 0" }}>{s.t}</h3>
                 <p style={{ fontSize: 12.5, color: C.sub, margin: 0, lineHeight: 1.5 }}>{s.d}</p>
               </div>
@@ -173,68 +236,144 @@ function SitePreview({ d }) {
           </div>
         </div>
       </div>
-      {/* metodologia */}
-      <div style={{ background: C.dark, color: "#EDEBE3" }}>
-        <div style={wrap({ padding: `40px ${CONTAINER_PAD}px` })}>
-          <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".12em", textTransform: "uppercase", color: C.acid, margin: 0 }}>Abordagem</p>
-          <h2 style={{ fontFamily: "Fraunces, serif", fontSize: 26, fontWeight: 600, margin: "8px 0 16px" }}>{d.methodTitle}</h2>
-          {d.methodText.split("\n\n").map((p, i) => (
-            <p key={i} style={{ maxWidth: 560, color: "#C7C4BA", margin: "0 0 12px", fontSize: 13.5, lineHeight: 1.6 }}>{p}</p>
+      {/* diferenciais */}
+      <div className="diff-grid" style={wrap({ padding: `40px ${CPAD}`, gap: 26, alignItems: "center" })}>
+        <div style={{ aspectRatio: "1/1", borderRadius: 16, overflow: "hidden" }}>
+          <img src="/media/diferenciais-verde.jpg" alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+        </div>
+        <div>
+          <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".12em", textTransform: "uppercase", color: accent, margin: 0 }}>Psicologia online</p>
+          <h2 style={{ fontFamily: "Fraunces, serif", fontSize: 24, fontWeight: 600, margin: "8px 0 16px" }}>Por que esse atendimento?</h2>
+          {d.benefits.map((b, i) => (
+            <div key={i} data-edit={`benefits.${i}`} style={{ display: "flex", gap: 10, marginBottom: 12 }}>
+              <span style={{ marginTop: 2, flexShrink: 0, width: 20, height: 20, borderRadius: 99, background: accent, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <Check size={12} color="#fff" />
+              </span>
+              <p style={{ margin: 0, fontSize: 13.5 }}><b>{b.t}</b> — <span style={{ color: C.sub }}>{b.d}</span></p>
+            </div>
           ))}
+        </div>
+      </div>
+      {/* metodologia */}
+      <div id="metodo" style={{ background: accentDeep, color: "#EDEBE3", scrollMarginTop: 64 }}>
+        <div style={wrap({ padding: `40px ${CPAD}` })}>
+          <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".12em", textTransform: "uppercase", color: accentSoft, margin: 0 }}>Abordagem</p>
+          <h2 data-edit="methodTitle" style={{ fontFamily: "Fraunces, serif", fontSize: 26, fontWeight: 600, margin: "8px 0 16px" }}>{d.methodTitle}</h2>
+          <div data-edit="methodText">
+            {d.methodText.split("\n\n").map((p, i) => (
+              <p key={i} style={{ maxWidth: 560, color: "rgba(255,255,255,.72)", margin: "0 0 12px", fontSize: 13.5, lineHeight: 1.6 }}>{p}</p>
+            ))}
+          </div>
         </div>
       </div>
       {/* sobre */}
-      <div className="sobre-grid" style={wrap({ padding: `40px ${CONTAINER_PAD}px`, gap: 26, alignItems: "center" })}>
+      <div id="sobre" className="sobre-grid" style={wrap({ padding: `40px ${CPAD}`, gap: 26, alignItems: "center", scrollMarginTop: 64 })}>
         <div>
-          <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".12em", textTransform: "uppercase", color: C.sage, margin: 0 }}>Quem sou eu</p>
+          <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".12em", textTransform: "uppercase", color: accent, margin: 0 }}>Quem sou eu</p>
           <h2 style={{ fontFamily: "Fraunces, serif", fontSize: 24, fontWeight: 600, margin: "8px 0 14px" }}>Uma escuta clínica e humana.</h2>
-          <p style={{ color: C.sub, fontSize: 13.5, marginBottom: 18 }}>{d.bio}</p>
+          <p data-edit="bio" style={{ color: C.sub, fontSize: 13.5, marginBottom: 18 }}>{d.bio}</p>
           <Btn primary><MessageCircle size={14} /> Agende uma consulta</Btn>
         </div>
-        <div style={{ aspectRatio: "4/5", borderRadius: 16, overflow: "hidden", background: `linear-gradient(160deg, ${C.sageSoft}, #E8E4DA)`, display: "flex", alignItems: "center", justifyContent: "center" }}>
-          {d.photo
-            ? <img src={d.photo} alt={d.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-            : <span style={{ fontFamily: "Fraunces, serif", fontSize: 40, color: C.sage, opacity: .5 }}>{initials(d.name)}</span>}
+        <div style={{ aspectRatio: "4/5", borderRadius: 16, overflow: "hidden" }}>
+          <img src="/media/sobre-verde.jpg" alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
         </div>
       </div>
       {/* faq */}
-      <div style={{ background: C.panel }}>
-        <div style={wrap({ padding: `40px ${CONTAINER_PAD}px` })}>
+      <div id="duvidas" style={{ background: C.panel, scrollMarginTop: 64 }}>
+        <div style={wrap({ padding: `40px ${CPAD}` })}>
           <h2 style={{ fontFamily: "Fraunces, serif", fontSize: 24, fontWeight: 600, margin: "0 0 18px" }}>Perguntas frequentes</h2>
-          {d.faq.map((f, i) => (
-            <details key={i} style={{ borderTop: `1px solid ${C.line}`, padding: "13px 0" }} open={i === 0}>
-              <summary style={{ cursor: "pointer", fontWeight: 600, fontSize: 14, listStyle: "none" }}>{f.q}</summary>
-              <p style={{ margin: "8px 0 0", color: C.sub, fontSize: 13 }}>{f.a}</p>
-            </details>
-          ))}
+          {d.faq.map((f, i) => {
+            const open = openFaq === i;
+            return (
+              <div key={i} data-edit={`faq.${i}`} style={{ borderTop: `1px solid ${C.line}`, padding: "13px 0" }}>
+                <button onClick={() => setOpenFaq(open ? -1 : i)}
+                  style={{ display: "flex", width: "100%", alignItems: "center", justifyContent: "space-between", gap: 12, cursor: "pointer", fontWeight: 600, fontSize: 14, background: "none", border: "none", padding: 0, margin: 0, color: C.ink, textAlign: "left", font: "inherit" }}>
+                  {f.q}
+                  <Plus size={15} color={C.sub} style={{ flexShrink: 0, transition: "transform .15s", transform: open ? "rotate(45deg)" : "none" }} />
+                </button>
+                <div style={{ display: "grid", gridTemplateRows: open ? "1fr" : "0fr", transition: "grid-template-rows .25s ease" }}>
+                  <div style={{ overflow: "hidden" }}>
+                    <p style={{ margin: "8px 0 0", color: C.sub, fontSize: 13 }}>{f.a}</p>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
       {/* cta final */}
-      <div style={wrap({ padding: `40px ${CONTAINER_PAD}px` })}>
-        <div style={{ background: C.dark, borderRadius: 16, padding: 30, color: "#fff", textAlign: "center" }}>
+      <div style={wrap({ padding: `40px ${CPAD}` })}>
+        <div style={{ background: accent, borderRadius: 16, padding: 30, color: "#fff", textAlign: "center" }}>
           <h3 style={{ fontFamily: "Fraunces, serif", fontSize: 24, fontWeight: 600, margin: "0 0 8px" }}>Vamos dar o primeiro passo?</h3>
-          <p style={{ color: "#B7B4AA", fontSize: 13, margin: "0 0 18px" }}>Agende uma conversa inicial agora mesmo.</p>
-          <a href={wa} target="_blank" rel="noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "12px 22px", borderRadius: 999, background: C.acid, color: C.ink, fontWeight: 700, fontSize: 13, textDecoration: "none" }}>
+          <p style={{ color: "rgba(255,255,255,.82)", fontSize: 13, margin: "0 0 18px" }}>Agende uma conversa inicial agora mesmo.</p>
+          <a href={wa} target="_blank" rel="noreferrer" data-edit="whatsapp" style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "12px 22px", borderRadius: 999, background: "#fff", color: accentDeep, fontWeight: 700, fontSize: 13, textDecoration: "none" }}>
             <MessageCircle size={15} /> Falar no WhatsApp
           </a>
         </div>
       </div>
       {/* footer */}
       <div style={{ borderTop: `1px solid ${C.line}`, background: C.panel }}>
-        <div style={wrap({ padding: `26px ${CONTAINER_PAD}px`, display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 14 })}>
+        {d.endereco && (
+          <div style={wrap({ padding: `26px ${CPAD} 0` })}>
+            <iframe title="Localização do consultório" loading="lazy"
+              src={`https://www.google.com/maps?q=${encodeURIComponent(d.endereco)}&output=embed`}
+              style={{ width: "100%", height: 200, border: 0, borderRadius: 12, display: "block" }} />
+            <div data-edit="endereco" style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: C.sub, marginTop: 10 }}>
+              <MapPin size={13} />{d.endereco}
+            </div>
+          </div>
+        )}
+        <div style={wrap({ padding: `26px ${CPAD}`, display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 14 })}>
           <div>
             <div style={{ fontFamily: "Fraunces, serif", fontWeight: 600, fontSize: 15 }}>{d.name}</div>
             <div style={{ fontSize: 12, color: C.sub, marginTop: 4 }}>{d.title} · {d.modalidade}</div>
           </div>
           <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-            <span style={{ display: "flex", gap: 6, alignItems: "center", fontSize: 12, color: C.sub }}><Instagram size={14} />{d.instagram}</span>
-            <span style={{ display: "flex", gap: 6, alignItems: "center", fontSize: 12, color: C.sub }}><Mail size={14} />{d.email}</span>
+            {d.instagram && (
+              <a href={igLink(d.instagram)} target="_blank" rel="noreferrer" data-edit="instagram" style={{ display: "flex", gap: 6, alignItems: "center", fontSize: 12, color: C.sub, textDecoration: "none" }}><Instagram size={14} />{d.instagram}</a>
+            )}
+            {d.email && (
+              <a href={`mailto:${d.email}`} data-edit="email" style={{ display: "flex", gap: 6, alignItems: "center", fontSize: 12, color: C.sub, textDecoration: "none" }}><Mail size={14} />{d.email}</a>
+            )}
           </div>
         </div>
       </div>
     </div>
   );
 }
+
+/* escolhe o tema pra renderizar sem alterar SitePreview (tema clássico) */
+const THEMES = { classic: "Clássico", editorial: "Autoral" };
+function ThemedSite({ d }) {
+  if (d?.theme === "editorial") return <SitePreviewEditorial d={d} />;
+  return <SitePreview d={d} />;
+}
+
+// registro dos campos editáveis pelo editor visual: cada data-edit no preview
+// aponta pra uma chave aqui, que diz qual controle a lateral deve abrir.
+// type: text | textarea | image | list. Pra list, withDesc/labels configuram
+// o ListEditor. section só agrupa visualmente o rótulo mostrado.
+const FIELD_REGISTRY = {
+  name: { label: "Nome", type: "text", ph: "Marina Costa" },
+  badge: { label: "Selo de modalidade", type: "text", ph: "Atendimento 100% Online" },
+  headline: { label: "Headline (título principal)", type: "textarea", ph: "Equilíbrio emocional..." },
+  subheadline: { label: "Subtítulo", type: "textarea", ph: "Psicoterapia baseada em..." },
+  bio: { label: "Sobre você (bio)", type: "textarea", ph: "Escreva sobre você..." },
+  methodTitle: { label: "Título da abordagem", type: "text", ph: "O que é a TCC?" },
+  methodText: { label: "Texto da abordagem", type: "textarea", ph: "Descreva sua abordagem..." },
+  photo: { label: "Foto principal", type: "image" },
+  logo: { label: "Logo", type: "image" },
+  whatsapp: { label: "WhatsApp (com DDD)", type: "text", ph: "51 99999-9999" },
+  instagram: { label: "Instagram", type: "text", ph: "@seuperfil" },
+  email: { label: "E-mail", type: "text", ph: "voce@email.com" },
+  endereco: { label: "Endereço do consultório", type: "text", ph: "Rua, número, cidade" },
+  specialties: { label: "Especialidades", type: "list", withDesc: true, labels: ["Tema (ex: Ansiedade)", "Descrição curta"] },
+  benefits: { label: "Diferenciais", type: "list", withDesc: true, labels: ["Título (ex: Conforto)", "Descrição curta"] },
+  faq: { label: "Perguntas frequentes", type: "list", withDesc: false, labels: ["Pergunta", "Resposta"] },
+};
+// itens de lista chegam como "specialties.0.t" — normaliza pro campo-base
+// (specialties) que é o que o controle de lista edita por inteiro.
+const baseField = (path) => (path || "").split(".")[0];
 
 /* --------- Shell e Brand em escopo de módulo (estáveis) ---------- */
 /* Definir estes DENTRO do App faz o React remontar tudo a cada tecla, */
@@ -277,17 +416,123 @@ const Brand = () => (
   </div>
 );
 
+/* --------- preview responsivo (mobile/tablet/desktop) ---------- */
+/* O preview do site renderiza direto no DOM da página do painel, então as    */
+/* media queries do site (@media max-width:640px etc.) respondem à largura   */
+/* da JANELA do navegador, não à largura de uma div. Só dá pra simular       */
+/* mobile/tablet de verdade com um <iframe> — tem seu próprio viewport       */
+/* independente. Usa portal do React pra montar o mesmo componente ao vivo   */
+/* dentro do documento do iframe, sem perder reatividade (troca de           */
+/* tema/paleta continua atualizando o preview instantaneamente).             */
+const EDIT_HL = "#2F6FED"; // cor do contorno do editor — azul fixo, destaca em qualquer paleta
+const PREVIEW_FRAME_CSS = `
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600&family=Inter:wght@400;500;600;700&display=swap');
+  :root { --cpad: 32px; }
+  *{box-sizing:border-box;} body{margin:0;} details summary::-webkit-details-marker{display:none;}
+  html{scroll-behavior:smooth;}
+  ::-webkit-scrollbar{width:7px;} ::-webkit-scrollbar-track{background:transparent;}
+  ::-webkit-scrollbar-thumb{background:#D8D3C6;border-radius:9px;}
+  .hero-grid { display:grid; grid-template-columns: 1.1fr .9fr; }
+  .sobre-grid { display:grid; grid-template-columns: 1fr 1fr; }
+  .diff-grid { display:grid; grid-template-columns: 1fr 1fr; }
+  .spec-grid { display:grid; grid-template-columns: 1fr 1fr; }
+  @media (max-width: 640px) {
+    :root { --cpad: 16px; }
+    .hero-grid, .sobre-grid, .diff-grid, .spec-grid { grid-template-columns: 1fr !important; }
+    .hero-grid > div:last-child, .sobre-grid > div:last-child { width: 100%; max-width: 420px; margin: 20px auto 0; }
+    .diff-grid > div:first-child { width: 100%; max-width: 420px; margin: 0 auto 20px; }
+    .site-nav { display: none !important; }
+  }
+  /* editor visual: só valem quando body.ed-active */
+  body.ed-active [data-edit]{ cursor: pointer; }
+  body.ed-active [data-edit]:hover{ outline: 2px dashed ${EDIT_HL}; outline-offset: 2px; border-radius: 4px; }
+  body.ed-active [data-edit].ed-selected{ outline: 2px solid ${EDIT_HL}; outline-offset: 2px; border-radius: 4px; }
+`;
+
+const PREVIEW_DEVICES = {
+  desktop: { label: "Desktop", width: "100%", icon: Monitor },
+  tablet: { label: "Tablet", width: 768, icon: Tablet },
+  mobile: { label: "Mobile", width: 375, icon: Smartphone },
+};
+
+/* O iframe É o dispositivo: largura da tela simulada, altura 100% do palco,   */
+/* rolando por dentro dele mesmo — igual um navegador de verdade. A tentativa  */
+/* anterior (crescer o iframe até a altura total do conteúdo e deixar o        */
+/* container de fora rolar) dava barra de rolagem fantasma na borda e sobra    */
+/* de espaço no fim das telas menores.                                         */
+function PreviewFrame({ width, radius, children, editMode, selectedField, onSelect }) {
+  const [iframeEl, setIframeEl] = useState(null);
+  const [mountNode, setMountNode] = useState(null);
+
+  useEffect(() => {
+    if (!iframeEl) return;
+    const doc = iframeEl.contentDocument;
+    if (!doc || !doc.body) return;
+    doc.body.style.margin = "0";
+    const style = doc.createElement("style");
+    style.textContent = PREVIEW_FRAME_CSS;
+    doc.head.appendChild(style);
+    setMountNode(doc.body);
+  }, [iframeEl]);
+
+  // liga/desliga o modo de edição no body do iframe + handler de clique
+  // delegado. Em editMode, clicar num elemento com data-edit seleciona; e
+  // qualquer link (CTA do WhatsApp) tem o clique bloqueado pra não navegar.
+  useEffect(() => {
+    if (!mountNode) return;
+    mountNode.classList.toggle("ed-active", !!editMode);
+    if (!editMode) return;
+    const onClick = (e) => {
+      const link = e.target.closest("a");
+      if (link) { e.preventDefault(); }
+      const el = e.target.closest("[data-edit]");
+      if (el) { e.preventDefault(); e.stopPropagation(); onSelect?.(el.dataset.edit); }
+    };
+    mountNode.addEventListener("click", onClick, true);
+    return () => mountNode.removeEventListener("click", onClick, true);
+  }, [mountNode, editMode, onSelect]);
+
+  // marca o elemento selecionado (contorno sólido). Só o campo-base importa
+  // pra listas — todos os itens da mesma lista destacam juntos.
+  useEffect(() => {
+    if (!mountNode) return;
+    mountNode.querySelectorAll(".ed-selected").forEach((el) => el.classList.remove("ed-selected"));
+    if (!editMode || !selectedField) return;
+    const base = (selectedField || "").split(".")[0];
+    mountNode.querySelectorAll("[data-edit]").forEach((el) => {
+      if ((el.dataset.edit || "").split(".")[0] === base) el.classList.add("ed-selected");
+    });
+  }, [mountNode, editMode, selectedField, children]);
+
+  return (
+    <>
+      <iframe ref={setIframeEl} title="Preview do site"
+        style={{ width, maxWidth: "100%", height: "100%", border: 0, display: "block", background: "#fff", borderRadius: radius }} />
+      {mountNode && createPortal(children, mountNode)}
+    </>
+  );
+}
+
 /* ============================== APP ============================== */
 export default function App() {
   const [phase, setPhase] = useState("loading"); // loading | public | welcome | chat | generating | site
   const [lead, setLead] = useState({ name: "", email: "" });
   const [authError, setAuthError] = useState("");
   const [sendingLink, setSendingLink] = useState(false);
+  const [linkSent, setLinkSent] = useState(false);
+  const [otpCode, setOtpCode] = useState("");
+  const [verifyingOtp, setVerifyingOtp] = useState(false);
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+  const [previewDevice, setPreviewDevice] = useState("desktop");
+  const [editMode, setEditMode] = useState(false);
+  const [selectedField, setSelectedField] = useState(null); // caminho do data-edit, ex "headline" ou "faq.1.q"
   const [publishing, setPublishing] = useState(false);
   const [publishedUrl, setPublishedUrl] = useState(null);
   const [siteSlug, setSiteSlug] = useState(null);
   const [siteStatus, setSiteStatus] = useState("draft");
   const [publicSite, setPublicSite] = useState(undefined); // undefined=carregando null=não achou objeto=achou
+  const [showPlanPicker, setShowPlanPicker] = useState(false);
+  const [checkingOut, setCheckingOut] = useState(false);
   const flowStartedRef = useRef(false); // true assim que o quiz começa nesta aba — evita que a sessão chegando depois (outra aba) interrompa o fluxo
   const [msgs, setMsgs] = useState([]);
   const [stepIdx, setStepIdx] = useState(0);
@@ -304,9 +549,9 @@ export default function App() {
   const [cardSel, setCardSel] = useState([]);
   const [cardOpts, setCardOpts] = useState(CARDS_STEP ? CARDS_STEP.options : []);
   const [cardCustom, setCardCustom] = useState("");
-  // foto de perfil
-  const [photoDraft, setPhotoDraft] = useState("");
-  const [photoUrl, setPhotoUrl] = useState("");
+  // imagem (foto ou logo, conforme a etapa ativa)
+  const [imageDraft, setImageDraft] = useState("");
+  const [imageUrl, setImageUrl] = useState("");
   // etapas "specialty" e "crp": especialidade e registro, cada uma leve e isolada
   const [specialtySel, setSpecialtySel] = useState("");
   const [specialtyCustom, setSpecialtyCustom] = useState("");
@@ -315,6 +560,8 @@ export default function App() {
   const fileRef = useRef(null);
   const scrollRef = useRef(null);
   const composerRef = useRef(null);
+  const saveTimerRef = useRef(null); // debounce das edições ao vivo do editor
+  const editFileRef = useRef(null); // file input do editor visual (foto/logo)
 
   const step = FLOW[stepIdx];
   const editingFlowStep = editingKey ? FLOW.find((f) => f.key === editingKey) : null;
@@ -323,6 +570,17 @@ export default function App() {
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [msgs, typing]);
+
+  // textarea da resposta longa ("sobre") cresce junto com o texto até um
+  // teto, em vez de ficar 1 linha só e obrigar a rolar pra ler o que já foi
+  // escrito/inserido (ex: os começos sugeridos, que passam de 250 chars).
+  useEffect(() => {
+    const el = composerRef.current;
+    if (el && el.tagName === "TEXTAREA") {
+      el.style.height = "auto";
+      el.style.height = Math.min(el.scrollHeight, 220) + "px";
+    }
+  }, [draft]);
 
   // bot fala com "digitando"
   const botSay = (text) => {
@@ -333,26 +591,60 @@ export default function App() {
     }, 700);
   };
 
-  // login anônimo do Supabase: cria sessão na hora, sem e-mail/SMTP.
-  // (auth por magic link removida por enquanto — sem verificação de e-mail)
-  const startQuiz = async () => {
+  // login por magic link — cria a conta (se for a primeira vez) ou autentica
+  // de novo (se já existir), sem senha. A sessão só existe de fato depois
+  // que a pessoa clica no link recebido por e-mail (onAuthStateChange trata
+  // a volta, lá embaixo).
+  const sendMagicLink = async () => {
     if (!lead.name.trim() || !/\S+@\S+\.\S+/.test(lead.email)) return;
+    const name = titleCase(lead.name);
+    setLead((l) => ({ ...l, name }));
     setSendingLink(true);
     setAuthError("");
-    const { error } = await supabase.auth.signInAnonymously({
-      options: { data: { name: lead.name, email: lead.email } },
+    const { error } = await supabase.auth.signInWithOtp({
+      email: lead.email,
+      options: { emailRedirectTo: window.location.origin, data: { name } },
     });
     setSendingLink(false);
     if (error) { setAuthError(error.message); return; }
-    flowStartedRef.current = true;
-    setPhase("chat");
-    botSay(FLOW[0].bot.replace("{first}", firstName(lead.name)));
-    // manda o lead pro Notion em segundo plano — não trava o quiz se falhar
+    setLinkSent(true);
+    // manda o lead pro Notion em segundo plano — não trava o fluxo se falhar
     fetch("/api/lead", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: lead.name, email: lead.email }),
+      body: JSON.stringify({ name, email: lead.email }),
     }).catch(() => {});
+  };
+
+  // alternativa ao link — resolve o problema clássico de magic link quando o
+  // e-mail só abre em outro navegador/perfil (a pessoa pede o login aqui,
+  // mas o e-mail abre em outra sessão do navegador, então o link "entra"
+  // no lugar errado). Código de 6 dígitos verifica direto onde foi pedido.
+  const verifyCode = async () => {
+    if (!otpCode.trim()) return;
+    setVerifyingOtp(true);
+    setAuthError("");
+    const { error } = await supabase.auth.verifyOtp({
+      email: lead.email,
+      token: otpCode.trim(),
+      type: "email",
+    });
+    if (error) { setVerifyingOtp(false); setAuthError(error.message); return; }
+    // sucesso: NÃO desliga o loading aqui — onAuthStateChange (mais abaixo)
+    // pega a sessão nova e chama hydrate(), que troca de fase. Se resetar
+    // verifyingOtp já aqui, o botão volta a mostrar "Entrar" clicável por um
+    // instante antes da troca de tela, parecendo que precisa clicar de novo.
+  };
+
+  const logout = async () => {
+    await supabase.auth.signOut();
+    flowStartedRef.current = false;
+    setAccountMenuOpen(false);
+    setLead({ name: "", email: "" });
+    setLinkSent(false);
+    setMsgs([]); setStepIdx(0); setAnswers({});
+    setSite(null); setSiteSlug(null); setSiteStatus("draft"); setPublishedUrl(null);
+    setPhase("welcome");
   };
 
   // roteamento simples (path != "/" = site público) + sessão existente (magic link)
@@ -368,7 +660,7 @@ export default function App() {
     const hydrate = async (session) => {
       if (flowStartedRef.current) return; // evita rodar de novo (StrictMode / onAuthStateChange + getSession em paralelo)
       flowStartedRef.current = true;
-      const name = session.user.user_metadata?.name || "";
+      const name = titleCase(session.user.user_metadata?.name || "");
       const email = session.user.user_metadata?.email || session.user.email || "";
       setLead({ name, email });
       const { data: row } = await supabase
@@ -378,7 +670,15 @@ export default function App() {
         .maybeSingle();
       if (row) {
         setAnswers(row.answers || {});
-        setSite(row.data || null);
+        // sites gerados antes da normalização do nome (ex: "pedro" salvo em
+        // vez de "Pedro") se corrigem sozinhos no próximo carregamento —
+        // sem isso, o nome errado fica congelado pra sempre na página pública.
+        let siteData = row.data;
+        if (siteData?.name && siteData.name !== titleCase(siteData.name)) {
+          siteData = { ...siteData, name: titleCase(siteData.name) };
+          saveSite(row.status, siteData, row.answers || {});
+        }
+        setSite(siteData || null);
         setSiteSlug(row.slug);
         setSiteStatus(row.status);
         if (row.status === "published") setPublishedUrl(`${window.location.origin}/${row.slug}`);
@@ -407,43 +707,138 @@ export default function App() {
     botSay(FLOW[0].bot.replace("{first}", firstName(lead.name)));
   };
 
-  const publishSite = async () => {
-    setPublishing(true);
-    setAuthError("");
-    let { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
-      // fallback: não deveria acontecer (a sessão anônima é criada no início do quiz), mas garante
-      const { data, error } = await supabase.auth.signInAnonymously({ options: { data: { name: lead.name, email: lead.email } } });
-      if (error) { setPublishing(false); setAuthError(error.message); return; }
-      session = data.session;
-    }
+  const changeTheme = (theme) => {
+    const updated = { ...site, theme };
+    setSite(updated);
+    saveSite(siteStatus, updated, answers);
+  };
+
+  const changeColorScheme = (colorScheme) => {
+    const updated = { ...site, colorScheme };
+    setSite(updated);
+    saveSite(siteStatus, updated, answers);
+  };
+
+  // edição ao vivo de um campo do site (usada pelo editor visual). Atualiza o
+  // estado na hora (preview reflete) e agenda a gravação com debounce pra não
+  // bater no Supabase a cada tecla. Mantém o status atual (publicado continua
+  // publicado). "value" pra listas é o array inteiro (o ListEditor devolve).
+  const editField = (field, value) => {
+    const updated = { ...site, [field]: value };
+    setSite(updated);
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => {
+      saveSite(siteStatus, updated, answers).then((slug) => {
+        if (slug && siteStatus === "published") setPublishedUrl(`${window.location.origin}/${slug}`);
+      });
+    }, 800);
+  };
+
+  const toggleEditMode = () => {
+    setEditMode((v) => !v);
+    setSelectedField(null);
+  };
+
+  // lê o arquivo escolhido no editor e grava no campo selecionado (photo/logo)
+  const editImageFile = (e) => {
+    const f = e.target.files?.[0];
+    if (!f || !selectedField) return;
+    const r = new FileReader();
+    r.onload = () => editField(baseField(selectedField), r.result);
+    r.readAsDataURL(f);
+    e.target.value = ""; // permite reescolher o mesmo arquivo
+  };
+
+  // grava (ou atualiza) a linha em sites com o status pedido. Usado tanto
+  // pra salvar rascunho (assim que o site é gerado, antes de qualquer
+  // pagamento — evita perder tudo se ela sair pro checkout e voltar) quanto
+  // pra publicar de verdade.
+  const saveSite = async (status, siteData, answersData) => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return null;
     const ownerId = session.user.id;
     const { data: existing } = await supabase.from("sites").select("id, slug").eq("owner_id", ownerId).maybeSingle();
-
     const baseSlug = slugify(lead.name);
-    let lastError = null;
     for (let n = 1; n <= 20; n++) {
       const slug = existing?.slug || withSuffix(baseSlug, n);
-      const payload = { owner_id: ownerId, slug, status: "published", data: site, answers };
+      const payload = { owner_id: ownerId, slug, status, data: siteData, answers: answersData };
       const { error } = existing
         ? await supabase.from("sites").update(payload).eq("id", existing.id)
         : await supabase.from("sites").insert(payload);
-      if (!error) {
-        setSiteSlug(slug);
-        setSiteStatus("published");
-        setPublishedUrl(`${window.location.origin}/${slug}`);
-        setPublishing(false);
-        return;
-      }
-      lastError = error;
-      if (existing || error.code !== "23505") break; // só tenta de novo se foi conflito de slug numa criação nova
+      if (!error) return slug;
+      if (existing || error.code !== "23505") return null; // só tenta de novo se foi conflito de slug numa criação nova
     }
-    setPublishing(false);
-    setAuthError(lastError?.message || "Erro ao publicar.");
+    return null;
   };
 
+  const publishSite = async () => {
+    setPublishing(true);
+    setAuthError("");
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      // sessão expirou/caiu — sem login real não tem como recriar sem
+      // perder a conta certa, então manda de volta pro login em vez de
+      // criar uma sessão nova (que geraria um site órfão, desconectado
+      // da conta de verdade).
+      setPublishing(false);
+      setAuthError("Sua sessão expirou. Faça login de novo pra publicar.");
+      logout();
+      return;
+    }
+    const ownerId = session.user.id;
+
+    const { data: sub } = await supabase.from("subscriptions").select("status").eq("owner_id", ownerId).maybeSingle();
+    if (sub?.status !== "active") {
+      await saveSite("draft", site, answers); // garante que o rascunho está salvo antes de ir pro checkout
+      setPublishing(false);
+      setShowPlanPicker(true);
+      return;
+    }
+
+    const slug = await saveSite("published", site, answers);
+    setPublishing(false);
+    if (!slug) { setAuthError("Erro ao publicar."); return; }
+    setSiteSlug(slug);
+    setSiteStatus("published");
+    setPublishedUrl(`${window.location.origin}/${slug}`);
+  };
+
+  const startCheckout = async (plan) => {
+    setCheckingOut(true);
+    setAuthError("");
+    const { data: { session } } = await supabase.auth.getSession();
+    const res = await fetch("/api/checkout", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify({ plan, name: lead.name, email: lead.email }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.url) {
+      setCheckingOut(false);
+      setAuthError(data.error || "Erro ao iniciar o pagamento.");
+      return;
+    }
+    window.location.href = data.url;
+  };
+
+  // voltando do checkout da Asaas com sucesso: limpa a URL e tenta publicar de novo
+  // (o webhook pode levar alguns segundos pra confirmar, então tenta algumas vezes)
+  useEffect(() => {
+    if (phase !== "site" || new URLSearchParams(window.location.search).get("checkout") !== "success") return;
+    window.history.replaceState({}, "", window.location.pathname);
+    let attempts = 0;
+    const retry = setInterval(() => {
+      attempts += 1;
+      publishSite();
+      if (attempts >= 5) clearInterval(retry);
+    }, 3000);
+    publishSite();
+    return () => clearInterval(retry);
+  }, [phase]);
+
   const advance = (merged) => {
-    const nextIdx = stepIdx + 1;
+    let nextIdx = stepIdx + 1;
+    while (nextIdx < FLOW.length && FLOW[nextIdx].skipIf && FLOW[nextIdx].skipIf(merged)) nextIdx++;
     if (nextIdx < FLOW.length) {
       setStepIdx(nextIdx);
       botSay(FLOW[nextIdx].bot.replace("{first}", firstName(lead.name)));
@@ -513,21 +908,27 @@ export default function App() {
     advance(merged);
   };
 
-  // --- foto de perfil ---
-  const handleFile = (e) => {
+  // --- imagem (foto de perfil OU logo — mesma UI, chave muda conforme a etapa) ---
+  const IMAGE_LABELS = {
+    photo: { added: "📷 Foto adicionada", skipped: "Seguir sem foto por enquanto" },
+    logo: { added: "🖼️ Logo enviada", skipped: "Seguir sem logo por enquanto" },
+  };
+  const handleImageFile = (e) => {
     const f = e.target.files?.[0];
     if (!f) return;
     const r = new FileReader();
-    r.onload = () => setPhotoDraft(r.result);
+    r.onload = () => setImageDraft(r.result);
     r.readAsDataURL(f);
   };
-  const confirmPhoto = (val) => {
-    const text = val ? "📷 Foto adicionada" : "Seguir sem foto por enquanto";
-    if (applyAnswer("photo", text, val || "", { photo: val || "" })) { setPhotoDraft(""); setPhotoUrl(""); return; }
-    setMsgs((m) => [...m, { id: uid(), role: "user", text, key: "photo", photo: val || "" }]);
-    const merged = { ...answers, photo: val || "" };
+  const confirmImage = (val) => {
+    const key = (editingFlowStep || step)?.key || "photo";
+    const labels = IMAGE_LABELS[key] || IMAGE_LABELS.photo;
+    const text = val ? labels.added : labels.skipped;
+    if (applyAnswer(key, text, val || "", { photo: val || "" })) { setImageDraft(""); setImageUrl(""); return; }
+    setMsgs((m) => [...m, { id: uid(), role: "user", text, key, photo: val || "" }]);
+    const merged = { ...answers, [key]: val || "" };
     setAnswers(merged);
-    setPhotoDraft(""); setPhotoUrl("");
+    setImageDraft(""); setImageUrl("");
     advance(merged);
   };
 
@@ -555,12 +956,12 @@ export default function App() {
       return;
     }
     if (flowStep?.type === "image") {
-      setPhotoDraft(m.photo || "");
-      setPhotoUrl("");
+      setImageDraft(m.photo || "");
+      setImageUrl("");
       setEditingKey(m.key);
       return;
     }
-    if (flowStep?.type === "chips") {
+    if (flowStep?.type === "chips" || flowStep?.type === "colors") {
       setEditingKey(m.key);
       return;
     }
@@ -579,7 +980,7 @@ export default function App() {
   const cancelEdit = () => { setEditingId(null); setEditDraft(""); };
   const cancelKeyEdit = () => {
     setEditingKey(null);
-    setPhotoDraft(""); setPhotoUrl("");
+    setImageDraft(""); setImageUrl("");
     setCardSel([]);
     setSpecialtySel(""); setSpecialtyCustom("");
     setCrpNumber("");
@@ -603,9 +1004,10 @@ export default function App() {
     setCardSel([]);
   };
 
-  // --- adicionar início sugerido ao texto ---
-  const addStarter = (text) => {
-    setDraft((d) => (d.trim() ? d.trimEnd() + " " : "") + text + " ");
+  // --- usar um começo sugerido: preenche com uma frase completa (da base,
+  // sem IA) que ela pode editar, em vez de só um fragmento incompleto ---
+  const addStarter = (template) => {
+    setDraft(template);
     setTimeout(() => composerRef.current?.focus(), 0);
   };
 
@@ -641,7 +1043,7 @@ export default function App() {
         ? `O que é a ${all.abordagem}?`
         : (copy.methodTitle || "Sobre a abordagem");
 
-      setSite({
+      const siteObj = {
         ...copy,
         specialties: finalSpecialties,
         badge,
@@ -649,9 +1051,17 @@ export default function App() {
         name: lead.name, email: lead.email, title,
         modalidade: all.modalidade, whatsapp: all.whatsapp, instagram: all.instagram,
         photo: all.photo || "",
+        logo: all.logo || "",
+        endereco: all.endereco || "",
         waMessage: `Olá! Vi seu site e tenho interesse em agendar uma consulta.`,
-      });
+        theme: "classic",
+        colorScheme: all.colorScheme || DEFAULT_COLOR_SCHEME,
+      };
+      setSite(siteObj);
       setPhase("site");
+      // salva como rascunho assim que o site é gerado — se ela sair (ex: pro
+      // checkout) e voltar, o hydrate() consegue restaurar isso.
+      saveSite("draft", siteObj, all).then((slug) => { if (slug) setSiteSlug(slug); });
     }, GEN_STATUS.length * 450 + 300);
   };
 
@@ -661,13 +1071,17 @@ export default function App() {
   if (phase === "public") {
     const fontStyle = (
       <style>{`@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600&family=Inter:wght@400;500;600;700&display=swap');
-        *{box-sizing:border-box;} body{margin:0;} details summary::-webkit-details-marker{display:none;}
+        :root { --cpad: 32px; }
+        *{box-sizing:border-box;} html{scroll-behavior:smooth;} body{margin:0;} details summary::-webkit-details-marker{display:none;}
         .hero-grid { display:grid; grid-template-columns: 1.1fr .9fr; }
         .sobre-grid { display:grid; grid-template-columns: 1fr 1fr; }
+        .diff-grid { display:grid; grid-template-columns: 1fr 1fr; }
         .spec-grid { display:grid; grid-template-columns: 1fr 1fr; }
         @media (max-width: 640px) {
-          .hero-grid, .sobre-grid, .spec-grid { grid-template-columns: 1fr !important; }
-          .hero-grid > div:last-child, .sobre-grid > div:last-child { max-width: 220px; margin: 20px auto 0; }
+          :root { --cpad: 16px; }
+          .hero-grid, .sobre-grid, .diff-grid, .spec-grid { grid-template-columns: 1fr !important; }
+          .hero-grid > div:last-child, .sobre-grid > div:last-child { width: 100%; max-width: 420px; margin: 20px auto 0; }
+          .diff-grid > div:first-child { width: 100%; max-width: 420px; margin: 0 auto 20px; }
           .site-nav { display: none !important; }
         }`}</style>
     );
@@ -687,17 +1101,80 @@ export default function App() {
         </div>
       );
     }
-    return <div style={{ background: "#fff" }}>{fontStyle}<SitePreview d={publicSite} /></div>;
+    return <div style={{ background: "#fff" }}>{fontStyle}<ThemedSite d={publicSite} /></div>;
   }
+
+  // ícone de conta (foto ou iniciais) + dropdown com logout — aparece nas
+  // fases "chat" e "site", onde já existe uma sessão de verdade.
+  const renderAccountMenu = () => (
+    <div style={{ position: "relative" }}>
+      <button onClick={() => setAccountMenuOpen((v) => !v)} aria-label="Conta"
+        style={{ display: "flex", alignItems: "center", gap: 6, padding: 3, borderRadius: 999, border: `1px solid ${C.line}`, background: "#fff", cursor: "pointer" }}>
+        <div style={{ width: 26, height: 26, borderRadius: 999, overflow: "hidden", flexShrink: 0, background: C.sageSoft, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          {site?.photo
+            ? <img src={site.photo} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+            : <span style={{ fontSize: 10.5, fontWeight: 700, color: C.sage }}>{initials(lead.name)}</span>}
+        </div>
+        <ChevronDown size={13} color={C.sub} style={{ marginRight: 3 }} />
+      </button>
+      {accountMenuOpen && (
+        <>
+          <div onClick={() => setAccountMenuOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 9 }} />
+          <div className="fade" style={{ position: "absolute", top: "calc(100% + 8px)", right: 0, zIndex: 10, minWidth: 190, background: "#fff", border: `1px solid ${C.line}`, borderRadius: 14, boxShadow: "0 20px 40px -20px rgba(0,0,0,.25)", overflow: "hidden" }}>
+            <div style={{ padding: "12px 14px", borderBottom: `1px solid ${C.line}` }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: C.ink }}>{lead.name}</div>
+              <div style={{ fontSize: 11.5, color: C.sub, marginTop: 1, wordBreak: "break-all" }}>{lead.email}</div>
+            </div>
+            <button onClick={logout}
+              style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "10px 14px", border: "none", background: "none", cursor: "pointer", fontSize: 13, fontWeight: 600, color: "#B3453A", textAlign: "left" }}>
+              <LogOut size={14} /> Sair
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  );
 
   /* ---- LOADING inicial (checando sessão) ---- */
   if (phase === "loading") {
     return <Shell><div className="fade" style={{ color: C.sub, fontSize: 14 }}>Carregando...</div></Shell>;
   }
 
-  /* ---- WELCOME / captura de lead ---- */
+  /* ---- WELCOME / login por magic link ---- */
   if (phase === "welcome") {
     const ok = lead.name.trim() && /\S+@\S+\.\S+/.test(lead.email);
+    if (linkSent) {
+      return (
+        <Shell>
+          <div className="fade welcome-card" style={{ width: "100%", maxWidth: 440, background: C.panel, border: `1px solid ${C.line}`, borderRadius: 22, boxShadow: "0 30px 70px -40px rgba(0,0,0,.3)", textAlign: "center" }}>
+            <div style={{ width: 48, height: 48, borderRadius: 14, background: C.sageSoft, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 18px" }}>
+              <Inbox size={22} color={C.sage} />
+            </div>
+            <h1 style={{ fontFamily: "Fraunces, serif", fontSize: 24, fontWeight: 600, margin: "0 0 10px" }}>Verifique seu e-mail</h1>
+            <p style={{ color: C.sub, fontSize: 14.5, lineHeight: 1.6, margin: "0 0 18px" }}>
+              Mandamos um código de acesso pra <b>{lead.email}</b>. Copie e cole aqui embaixo pra continuar.
+            </p>
+            <div style={{ display: "flex", gap: 8 }}>
+              <input value={otpCode} onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, "").slice(0, 8))} placeholder="00000000"
+                inputMode="numeric" disabled={verifyingOtp}
+                onKeyDown={(e) => e.key === "Enter" && verifyCode()}
+                style={{ flex: 1, minWidth: 0, padding: "12px 15px", borderRadius: 11, border: `1px solid ${C.line}`, background: verifyingOtp ? "#F3F1EA" : "#fff", fontSize: 16, letterSpacing: ".1em", textAlign: "center", fontFamily: "Inter" }} />
+              <button onClick={verifyCode} disabled={!otpCode.trim() || verifyingOtp}
+                style={{ padding: "0 20px", borderRadius: 11, border: "none", cursor: otpCode.trim() && !verifyingOtp ? "pointer" : "default", background: otpCode.trim() ? C.dark : "#D9D5CA", color: "#fff", fontWeight: 600, fontSize: 13.5, whiteSpace: "nowrap", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 7 }}>
+                {verifyingOtp ? (<><Loader2 size={15} className="spin" /> Verificando...</>) : "Entrar"}
+              </button>
+            </div>
+            {authError && <p style={{ color: "#B3453A", fontSize: 13, margin: "12px 0 0" }}>{authError}</p>}
+            <p style={{ color: C.sub, fontSize: 13, margin: "16px 0 0" }}>
+              Não chegou? Confira o spam ou{" "}
+              <button onClick={() => { setLinkSent(false); setOtpCode(""); setAuthError(""); }} style={{ background: "none", border: "none", padding: 0, color: C.sage, fontWeight: 600, fontSize: 13, cursor: "pointer", textDecoration: "underline" }}>
+                tente de novo
+              </button>.
+            </p>
+          </div>
+        </Shell>
+      );
+    }
     return (
       <Shell>
         <div className="fade welcome-card" style={{ width: "100%", maxWidth: 440, background: C.panel, border: `1px solid ${C.line}`, borderRadius: 22, boxShadow: "0 30px 70px -40px rgba(0,0,0,.3)" }}>
@@ -711,23 +1188,23 @@ export default function App() {
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             <div>
               <div style={{ fontSize: 12, color: C.sub, marginBottom: 6, fontWeight: 500 }}>Seu nome</div>
-              <input value={lead.name} onChange={(e) => setLead({ ...lead, name: e.target.value })} placeholder="Dra. Marina Costa"
+              <input value={lead.name} onChange={(e) => setLead({ ...lead, name: e.target.value })} placeholder="Marina Costa"
                 style={{ width: "100%", padding: "13px 15px", borderRadius: 11, border: `1px solid ${C.line}`, background: "#fff", fontSize: 15, fontFamily: "Inter" }} />
             </div>
             <div>
               <div style={{ fontSize: 12, color: C.sub, marginBottom: 6, fontWeight: 500 }}>Seu melhor e-mail</div>
               <input value={lead.email} onChange={(e) => setLead({ ...lead, email: e.target.value })} placeholder="voce@email.com"
-                onKeyDown={(e) => e.key === "Enter" && startQuiz()}
+                onKeyDown={(e) => e.key === "Enter" && sendMagicLink()}
                 style={{ width: "100%", padding: "13px 15px", borderRadius: 11, border: `1px solid ${C.line}`, background: "#fff", fontSize: 15, fontFamily: "Inter" }} />
             </div>
           </div>
           {authError && <p style={{ color: "#B3453A", fontSize: 13, margin: "12px 0 0" }}>{authError}</p>}
-          <button onClick={startQuiz} disabled={!ok || sendingLink}
+          <button onClick={sendMagicLink} disabled={!ok || sendingLink}
             style={{ marginTop: 22, width: "100%", padding: "14px", borderRadius: 999, border: "none", cursor: ok && !sendingLink ? "pointer" : "default", background: ok ? C.dark : "#D9D5CA", color: "#fff", fontWeight: 600, fontSize: 15, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8, transition: "background .2s" }}>
-            {sendingLink ? "Preparando..." : "Começar a conversa"} <ArrowRight size={17} />
+            {sendingLink ? "Enviando..." : "Entrar por e-mail"} <ArrowRight size={17} />
           </button>
           <p style={{ fontSize: 11.5, color: C.sub, textAlign: "center", margin: "14px 0 0" }}>
-            Sem spam, sem senha.
+            Sem senha — a gente manda um link de acesso pro seu e-mail.
           </p>
         </div>
       </Shell>
@@ -741,7 +1218,10 @@ export default function App() {
         <div className="chat-card" style={{ width: "100%", maxWidth: 480, background: C.panel, border: `1px solid ${C.line}`, borderRadius: 22, display: "flex", flexDirection: "column", overflow: "hidden", boxShadow: "0 30px 70px -40px rgba(0,0,0,.3)" }}>
           <div style={{ padding: "16px 20px", borderBottom: `1px solid ${C.line}`, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <Brand />
-            <span style={{ fontSize: 11.5, color: C.sage, fontWeight: 600 }}>● online</span>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <span style={{ fontSize: 11.5, color: C.sage, fontWeight: 600 }}>● online</span>
+              {renderAccountMenu()}
+            </div>
           </div>
           <div ref={scrollRef} style={{ flex: 1, overflow: "auto", padding: "20px", display: "flex", flexDirection: "column", gap: 12 }}>
             {msgs.map((m) => {
@@ -822,6 +1302,21 @@ export default function App() {
                 ))}
               </div>
             )}
+            {!typing && activeType === "colors" && (
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 8, marginBottom: 4 }}>
+                {(editingFlowStep || step).options.map((o) => (
+                  <button key={o} onClick={() => chooseChip(o)}
+                    style={{ display: "flex", flexDirection: "column", gap: 8, padding: "10px 12px", borderRadius: 12, border: `1px solid ${C.line}`, background: "#fff", cursor: "pointer", textAlign: "left" }}>
+                    <div style={{ display: "flex", borderRadius: 7, overflow: "hidden", height: 22 }}>
+                      {COLOR_SCHEMES[o].swatches.map((sw, i) => (
+                        <div key={i} style={{ flex: 1, background: sw }} />
+                      ))}
+                    </div>
+                    <span style={{ fontSize: 12.5, fontWeight: 600, color: C.ink }}>{o}</span>
+                  </button>
+                ))}
+              </div>
+            )}
             {!typing && activeType === "specialty" && (
               <div>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 10 }}>
@@ -884,15 +1379,15 @@ export default function App() {
             )}
             {!typing && activeType === "image" && (
               <div>
-                <input type="file" accept="image/*" ref={fileRef} style={{ display: "none" }} onChange={handleFile} />
-                {photoDraft ? (
+                <input type="file" accept="image/*" ref={fileRef} style={{ display: "none" }} onChange={handleImageFile} />
+                {imageDraft ? (
                   <div style={{ display: "flex", alignItems: "center", gap: 11 }}>
-                    <img src={photoDraft} alt="" style={{ width: 54, height: 54, borderRadius: 12, objectFit: "cover", border: `1px solid ${C.line}` }} />
-                    <button onClick={() => confirmPhoto(photoDraft)}
+                    <img src={imageDraft} alt="" style={{ width: 54, height: 54, borderRadius: 12, objectFit: "cover", border: `1px solid ${C.line}` }} />
+                    <button onClick={() => confirmImage(imageDraft)}
                       style={{ flex: 1, padding: "12px", borderRadius: 999, border: "none", background: C.dark, color: "#fff", fontWeight: 600, fontSize: 14, cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 7 }}>
-                      <Check size={16} /> Usar esta foto
+                      <Check size={16} /> {(editingFlowStep || step)?.key === "logo" ? "Usar esta logo" : "Usar esta foto"}
                     </button>
-                    <button onClick={() => setPhotoDraft("")} aria-label="Trocar"
+                    <button onClick={() => setImageDraft("")} aria-label="Trocar"
                       style={{ width: 44, height: 44, flexShrink: 0, borderRadius: 999, border: `1px solid ${C.line}`, background: "#fff", color: C.sub, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
                       <X size={16} />
                     </button>
@@ -902,18 +1397,18 @@ export default function App() {
                     <div style={{ display: "flex", gap: 9, alignItems: "center", marginBottom: 10 }}>
                       <button onClick={() => fileRef.current?.click()}
                         style={{ flex: 1, padding: "12px", borderRadius: 999, border: `1px solid ${C.sage}`, background: C.sageSoft, color: C.sage, fontWeight: 600, fontSize: 14, cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
-                        <ImageIcon size={16} /> Escolher foto
+                        <ImageIcon size={16} /> {(editingFlowStep || step)?.key === "logo" ? "Escolher logo" : "Escolher foto"}
                       </button>
-                      <button onClick={() => confirmPhoto("")}
+                      <button onClick={() => confirmImage("")}
                         style={{ flexShrink: 0, padding: "0 18px", height: 44, borderRadius: 999, border: `1px solid ${C.line}`, background: "#fff", color: C.sub, fontWeight: 600, fontSize: 13.5, cursor: "pointer" }}>
                         Pular
                       </button>
                     </div>
                     <div style={{ display: "flex", gap: 9, alignItems: "center" }}>
-                      <input value={photoUrl} onChange={(e) => setPhotoUrl(e.target.value)} placeholder="ou cole o link de uma imagem"
-                        onKeyDown={(e) => e.key === "Enter" && photoUrl.trim() && setPhotoDraft(photoUrl.trim())}
+                      <input value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} placeholder="ou cole o link de uma imagem"
+                        onKeyDown={(e) => e.key === "Enter" && imageUrl.trim() && setImageDraft(imageUrl.trim())}
                         style={{ flex: 1, minWidth: 0, padding: "11px 15px", borderRadius: 999, border: `1px solid ${C.line}`, background: "#fff", fontSize: 14, fontFamily: "Inter" }} />
-                      <button onClick={() => photoUrl.trim() && setPhotoDraft(photoUrl.trim())} aria-label="Usar link"
+                      <button onClick={() => imageUrl.trim() && setImageDraft(imageUrl.trim())} aria-label="Usar link"
                         style={{ width: 42, height: 42, flexShrink: 0, borderRadius: 999, border: `1px solid ${C.line}`, background: "#fff", color: C.sub, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
                         <ArrowRight size={16} />
                       </button>
@@ -929,11 +1424,11 @@ export default function App() {
                     const on = cardSel.includes(o);
                     return (
                       <button key={o} onClick={() => toggleCard(o)}
-                        style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "9px 14px", borderRadius: 999, fontWeight: 600, fontSize: 13.5, cursor: "pointer",
+                        style={{ display: "inline-flex", alignItems: "center", padding: "9px 14px", borderRadius: 999, fontWeight: 600, fontSize: 13.5, cursor: "pointer",
                           border: `1px solid ${on ? C.sage : C.line}`,
                           background: on ? C.sage : "#fff",
                           color: on ? "#fff" : C.ink, transition: "all .15s" }}>
-                        {on && <Check size={14} />}{o}
+                        {o}
                       </button>
                     );
                   })}
@@ -942,8 +1437,9 @@ export default function App() {
                   <input value={cardCustom} onChange={(e) => setCardCustom(e.target.value)} placeholder="Adicionar outro tema..."
                     onKeyDown={(e) => e.key === "Enter" && addCustomCard()}
                     style={{ flex: 1, minWidth: 120, padding: "11px 15px", borderRadius: 999, border: `1px solid ${C.line}`, background: "#fff", fontSize: 14, fontFamily: "Inter" }} />
-                  <button onClick={addCustomCard} aria-label="Adicionar tema"
-                    style={{ width: 42, height: 42, flexShrink: 0, borderRadius: 999, border: `1px solid ${C.sage}`, background: C.sageSoft, color: C.sage, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <button onClick={addCustomCard} disabled={!cardCustom.trim()} aria-label="Adicionar tema personalizado à lista" title="Adicionar tema personalizado à lista"
+                    style={{ width: 42, height: 42, flexShrink: 0, borderRadius: 999, cursor: cardCustom.trim() ? "pointer" : "default", display: "flex", alignItems: "center", justifyContent: "center",
+                      border: `1px solid ${cardCustom.trim() ? C.sage : C.line}`, background: cardCustom.trim() ? C.sageSoft : "#fff", color: cardCustom.trim() ? C.sage : "#C9C4B7" }}>
                     <Plus size={17} />
                   </button>
                   <button onClick={confirmCards} disabled={!cardSel.length}
@@ -956,23 +1452,34 @@ export default function App() {
             )}
             {!editingKey && !typing && (step?.type === "text" || step?.allowText) && (
               <div>
-                {step?.starters && (
+                {(() => {
+                  const activeStarters = step?.startersByTone?.[answers.tom] || step?.startersByTone?.["Acolhedor"] || step?.starters;
+                  return activeStarters && (
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 7, marginBottom: 10 }}>
-                    {step.starters.map((s) => (
-                      <button key={s} onClick={() => addStarter(s)}
+                    {activeStarters.map((s) => (
+                      <button key={s.label} onClick={() => addStarter(s.template)}
                         style={{ padding: "7px 13px", borderRadius: 999, border: `1px dashed ${C.sage}`, background: C.sageSoft, color: C.sage, fontWeight: 500, fontSize: 13, cursor: "pointer" }}>
-                        {s}…
+                        {s.label}
                       </button>
                     ))}
                   </div>
-                )}
+                  );
+                })()}
                 <div style={{ display: "flex", gap: 9, alignItems: "flex-end" }}>
-                  <input ref={composerRef} value={draft}
-                    onChange={(e) => setDraft(step?.key === "whatsapp" ? formatPhoneBR(e.target.value) : e.target.value)}
-                    placeholder={step?.ph || "Escreva aqui..."}
-                    inputMode={step?.key === "whatsapp" ? "numeric" : undefined}
-                    onKeyDown={(e) => e.key === "Enter" && submit(draft)}
-                    style={{ flex: 1, minWidth: 0, padding: "12px 15px", borderRadius: 999, border: `1px solid ${C.line}`, background: "#fff", fontSize: 14.5, fontFamily: "Inter" }} />
+                  {step?.key === "sobre" ? (
+                    <textarea ref={composerRef} value={draft} rows={1}
+                      onChange={(e) => setDraft(e.target.value)}
+                      placeholder={step?.ph || "Escreva aqui..."}
+                      onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); submit(draft); } }}
+                      style={{ flex: 1, minWidth: 0, padding: "12px 15px", borderRadius: 18, border: `1px solid ${C.line}`, background: "#fff", fontSize: 14.5, fontFamily: "Inter", resize: "none", maxHeight: 220, overflowY: "auto", lineHeight: 1.5 }} />
+                  ) : (
+                    <input ref={composerRef} value={draft}
+                      onChange={(e) => setDraft(step?.key === "whatsapp" ? formatPhoneBR(e.target.value) : e.target.value)}
+                      placeholder={step?.ph || "Escreva aqui..."}
+                      inputMode={step?.key === "whatsapp" ? "numeric" : undefined}
+                      onKeyDown={(e) => e.key === "Enter" && submit(draft)}
+                      style={{ flex: 1, minWidth: 0, padding: "12px 15px", borderRadius: 999, border: `1px solid ${C.line}`, background: "#fff", fontSize: 14.5, fontFamily: "Inter" }} />
+                  )}
                   <button onClick={() => submit(draft)} aria-label="Enviar"
                     style={{ width: 44, height: 44, flexShrink: 0, borderRadius: 999, border: "none", background: C.dark, color: "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
                     <Send size={17} />
@@ -1009,7 +1516,6 @@ export default function App() {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600&family=Inter:wght@400;500;600;700&display=swap');
         *{box-sizing:border-box;} body{margin:0;} details summary::-webkit-details-marker{display:none;}
-        .prev::-webkit-scrollbar{width:8px;} .prev::-webkit-scrollbar-thumb{background:#D8D3C6;border-radius:9px;}
 
         /* --- grids do preview do site: colapsam em telas estreitas --- */
         .hero-grid { display:grid; grid-template-columns: 1.1fr .9fr; }
@@ -1020,12 +1526,17 @@ export default function App() {
           .hero-grid > div:last-child, .sobre-grid > div:last-child { max-width: 220px; margin: 20px auto 0; }
           .site-nav { display: none !important; }
         }
+        @media (max-width: 900px) {
+          .site-editor-cols { flex-direction: column; }
+          .site-sidebar { width: 100% !important; position: static !important; flex-direction: row !important; flex-wrap: wrap; gap: 20px !important; }
+          .site-sidebar > div { flex: 1 1 200px; }
+        }
         @media (max-width: 480px) {
           .site-done-wrap { padding: 12px !important; }
           .site-actions-row button { flex: 1; }
         }
       `}</style>
-      <div style={{ maxWidth: 940, margin: "0 auto" }}>
+      <div style={{ maxWidth: 1180, margin: "0 auto" }}>
         <div className="fade" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, flexWrap: "wrap", gap: 12 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
             <div style={{ width: 40, height: 40, flexShrink: 0, borderRadius: 11, background: C.sageSoft, display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -1036,32 +1547,181 @@ export default function App() {
               <div style={{ fontSize: 13, color: C.sub }}>Feito a partir das suas respostas. Role para conferir.</div>
             </div>
           </div>
-          <div className="site-actions-row" style={{ display: "flex", gap: 10, width: "100%", maxWidth: 320 }}>
-            <button onClick={restartQuiz}
-              style={{ padding: "11px 18px", borderRadius: 999, border: `1px solid ${C.line}`, background: "#fff", color: C.ink, fontWeight: 600, fontSize: 13.5, cursor: "pointer", whiteSpace: "nowrap" }}>
-              Recomeçar
-            </button>
-            <button onClick={publishSite} disabled={publishing}
-              style={{ padding: "11px 20px", borderRadius: 999, border: "none", background: C.dark, color: "#fff", fontWeight: 600, fontSize: 13.5, cursor: publishing ? "default" : "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 7, whiteSpace: "nowrap" }}>
-              <Check size={16} /> {publishing ? "Publicando..." : siteStatus === "published" ? "Atualizar site" : "Publicar site"}
-            </button>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
+            <div className="site-actions-row" style={{ display: "flex", gap: 10 }}>
+              {publishedUrl && (
+                <>
+                  <a href={publishedUrl} target="_blank" rel="noreferrer"
+                    style={{ padding: "11px 18px", borderRadius: 999, border: `1px solid ${C.line}`, background: "#fff", color: C.ink, fontWeight: 600, fontSize: 13.5, cursor: "pointer", whiteSpace: "nowrap", textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 7 }}>
+                    <ExternalLink size={14} /> Ver site
+                  </a>
+                  <button onClick={() => navigator.clipboard?.writeText(publishedUrl)} aria-label="Copiar link" title="Copiar link"
+                    style={{ width: 42, height: 42, flexShrink: 0, borderRadius: 999, border: `1px solid ${C.line}`, background: "#fff", color: C.sub, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <Copy size={15} />
+                  </button>
+                </>
+              )}
+              <button onClick={toggleEditMode}
+                style={{ padding: "11px 18px", borderRadius: 999, cursor: "pointer", fontWeight: 600, fontSize: 13.5, whiteSpace: "nowrap", display: "inline-flex", alignItems: "center", gap: 7,
+                  border: editMode ? "none" : `1px solid ${C.line}`,
+                  background: editMode ? C.sage : "#fff",
+                  color: editMode ? "#fff" : C.ink }}>
+                <Pencil size={14} /> {editMode ? "Concluir edição" : "Editar"}
+              </button>
+              <button onClick={restartQuiz}
+                style={{ padding: "11px 18px", borderRadius: 999, border: `1px solid ${C.line}`, background: "#fff", color: C.ink, fontWeight: 600, fontSize: 13.5, cursor: "pointer", whiteSpace: "nowrap" }}>
+                Recomeçar
+              </button>
+              <button onClick={publishSite} disabled={publishing}
+                style={{ padding: "11px 20px", borderRadius: 999, border: "none", background: C.dark, color: "#fff", fontWeight: 600, fontSize: 13.5, cursor: publishing ? "default" : "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 7, whiteSpace: "nowrap" }}>
+                <Check size={16} /> {publishing ? "Publicando..." : siteStatus === "published" ? "Atualizar site" : "Publicar site"}
+              </button>
+            </div>
+            {renderAccountMenu()}
           </div>
         </div>
+        {showPlanPicker && (
+          <div className="fade" style={{ marginBottom: 16, padding: 18, borderRadius: 14, background: C.sageSoft, border: `1px solid ${C.line}` }}>
+            <p style={{ margin: "0 0 4px", fontSize: 14.5, fontWeight: 600 }}>Escolha um plano pra publicar</p>
+            <p style={{ margin: "0 0 14px", fontSize: 13, color: C.sub }}>Sua página fica no ar enquanto a assinatura estiver ativa.</p>
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+              <button onClick={() => startCheckout("monthly")} disabled={checkingOut}
+                style={{ flex: "1 1 180px", padding: "14px 16px", borderRadius: 12, border: `1px solid ${C.line}`, background: "#fff", cursor: checkingOut ? "default" : "pointer", textAlign: "left" }}>
+                <div style={{ fontWeight: 700, fontSize: 14 }}>Mensal</div>
+                <div style={{ fontSize: 13, color: C.sub }}>R$ 49,90/mês</div>
+              </button>
+              <button onClick={() => startCheckout("yearly")} disabled={checkingOut}
+                style={{ flex: "1 1 180px", padding: "14px 16px", borderRadius: 12, border: `2px solid ${C.sage}`, background: "#fff", cursor: checkingOut ? "default" : "pointer", textAlign: "left" }}>
+                <div style={{ fontWeight: 700, fontSize: 14, color: C.sage }}>Anual</div>
+                <div style={{ fontSize: 13, color: C.sub }}>R$ 29,90/mês — cobrado R$ 358,80/ano</div>
+              </button>
+            </div>
+            {checkingOut && <p style={{ margin: "10px 0 0", fontSize: 12.5, color: C.sub }}>Abrindo o checkout...</p>}
+          </div>
+        )}
         {authError && (
           <div className="fade" style={{ marginBottom: 12, fontSize: 13, color: "#B3453A" }}>{authError}</div>
         )}
-        {publishedUrl && (
-          <div className="fade" style={{ marginBottom: 16, padding: "12px 16px", borderRadius: 12, background: C.sageSoft, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-            <span style={{ fontSize: 13, color: C.sage, fontWeight: 600 }}>No ar:</span>
-            <a href={publishedUrl} target="_blank" rel="noreferrer" style={{ fontSize: 13.5, color: C.ink, fontWeight: 600 }}>{publishedUrl}</a>
-            <button onClick={() => navigator.clipboard?.writeText(publishedUrl)}
-              style={{ marginLeft: "auto", padding: "6px 12px", borderRadius: 999, border: `1px solid ${C.line}`, background: "#fff", color: C.ink, fontSize: 12.5, fontWeight: 600, cursor: "pointer" }}>
-              Copiar link
-            </button>
+        <div className="fade" style={{ marginBottom: 16, display: "flex", justifyContent: "flex-end" }}>
+          <div style={{ display: "flex", gap: 3, padding: 3, borderRadius: 11, background: C.panel, border: `1px solid ${C.line}` }}>
+            {Object.entries(PREVIEW_DEVICES).map(([key, { label, icon: Icon }]) => (
+              <button key={key} onClick={() => setPreviewDevice(key)} aria-label={label} title={label}
+                style={{
+                  width: 36, height: 32, borderRadius: 8, border: "none", cursor: "pointer",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  background: previewDevice === key ? "#fff" : "transparent",
+                  color: previewDevice === key ? C.ink : C.sub,
+                  boxShadow: previewDevice === key ? "0 1px 4px rgba(0,0,0,.12)" : "none",
+                }}>
+                <Icon size={16} />
+              </button>
+            ))}
           </div>
-        )}
-        <div className="prev fade" style={{ borderRadius: 18, border: `1px solid ${C.line}`, overflow: "auto", maxHeight: "calc(100vh - 120px)", background: "#fff", boxShadow: "0 24px 60px -36px rgba(0,0,0,.3)" }}>
-          <SitePreview d={site} />
+        </div>
+        <div className="site-editor-cols" style={{ display: "flex", gap: 20, alignItems: "flex-start" }}>
+          <div className="site-sidebar fade" style={{ width: 224, flexShrink: 0, position: "sticky", top: 22, display: "flex", flexDirection: "column", gap: 22 }}>
+            {editMode && selectedField ? (
+              /* --- editor do campo selecionado --- */
+              (() => {
+                const base = baseField(selectedField);
+                const reg = FIELD_REGISTRY[base];
+                if (!reg) return null;
+                return (
+                  <div>
+                    <button onClick={() => setSelectedField(null)}
+                      style={{ display: "inline-flex", alignItems: "center", gap: 5, background: "none", border: "none", padding: 0, marginBottom: 12, color: C.sub, fontSize: 12.5, fontWeight: 600, cursor: "pointer" }}>
+                      <ArrowRight size={13} style={{ transform: "rotate(180deg)" }} /> Voltar
+                    </button>
+                    <div style={{ fontSize: 12, color: C.sub, fontWeight: 600, marginBottom: 8, textTransform: "uppercase", letterSpacing: ".04em" }}>{reg.label}</div>
+                    {reg.type === "text" && (
+                      <input value={site?.[base] || ""} onChange={(e) => editField(base, e.target.value)} placeholder={reg.ph} style={edInput(C)} />
+                    )}
+                    {reg.type === "textarea" && (
+                      <textarea value={site?.[base] || ""} onChange={(e) => editField(base, e.target.value)} placeholder={reg.ph} rows={5} style={{ ...edInput(C), resize: "vertical", lineHeight: 1.5 }} />
+                    )}
+                    {reg.type === "list" && (
+                      <ListEditor items={site?.[base] || []} onChange={(arr) => editField(base, arr)} withDesc={reg.withDesc} labels={reg.labels} C={C} />
+                    )}
+                    {reg.type === "image" && (
+                      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                        {site?.[base] && <img src={site[base]} alt="" style={{ width: "100%", borderRadius: 10, border: `1px solid ${C.line}` }} />}
+                        <input type="file" accept="image/*" ref={editFileRef} style={{ display: "none" }} onChange={editImageFile} />
+                        <button onClick={() => editFileRef.current?.click()}
+                          style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 7, padding: "10px 14px", borderRadius: 10, border: `1px solid ${C.sage}`, background: C.sageSoft, color: C.sage, fontWeight: 600, fontSize: 13, cursor: "pointer" }}>
+                          <ImageIcon size={15} /> {site?.[base] ? "Trocar imagem" : "Escolher imagem"}
+                        </button>
+                        <input value={/^data:/.test(site?.[base] || "") ? "" : (site?.[base] || "")} onChange={(e) => editField(base, e.target.value)} placeholder="ou cole o link de uma imagem" style={edInput(C)} />
+                        {site?.[base] && (
+                          <button onClick={() => editField(base, "")}
+                            style={{ padding: "8px 14px", borderRadius: 10, border: `1px solid ${C.line}`, background: "#fff", color: C.sub, fontWeight: 600, fontSize: 12.5, cursor: "pointer" }}>
+                            Remover
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()
+            ) : (
+              /* --- sem seleção: Tema + Paleta (+ dica em editMode) --- */
+              <>
+                {editMode && (
+                  <div style={{ padding: "10px 12px", borderRadius: 10, background: C.sageSoft, border: `1px solid ${C.line}`, fontSize: 12.5, color: C.sage, fontWeight: 600, lineHeight: 1.4 }}>
+                    Clique num elemento do site pra editá-lo.
+                  </div>
+                )}
+                <div>
+                  <div style={{ fontSize: 12, color: C.sub, fontWeight: 600, marginBottom: 8, textTransform: "uppercase", letterSpacing: ".04em" }}>Tema</div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                    {Object.entries(THEMES).map(([key, label]) => (
+                      <button key={key} onClick={() => changeTheme(key)}
+                        style={{
+                          padding: "9px 13px", borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: "pointer", textAlign: "left",
+                          border: `1px solid ${(site?.theme || "classic") === key ? C.dark : C.line}`,
+                          background: (site?.theme || "classic") === key ? C.dark : "#fff",
+                          color: (site?.theme || "classic") === key ? "#fff" : C.ink,
+                        }}>
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <div style={{ fontSize: 12, color: C.sub, fontWeight: 600, marginBottom: 8, textTransform: "uppercase", letterSpacing: ".04em" }}>Paleta</div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                    {Object.keys(COLOR_SCHEMES).map((label) => {
+                      const on = (site?.colorScheme || DEFAULT_COLOR_SCHEME) === label;
+                      return (
+                        <button key={label} onClick={() => changeColorScheme(label)}
+                          style={{
+                            display: "flex", alignItems: "center", gap: 8, padding: "9px 13px", borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: "pointer", textAlign: "left",
+                            border: `1px solid ${on ? C.dark : C.line}`,
+                            background: on ? C.dark : "#fff",
+                            color: on ? "#fff" : C.ink,
+                          }}>
+                          <span style={{ width: 14, height: 14, borderRadius: 999, background: COLOR_SCHEMES[label].accent, flexShrink: 0 }} />
+                          {label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+          <div className="fade" style={{
+            flex: 1, minWidth: 0, height: "calc(100vh - 150px)",
+            borderRadius: 18, border: `1px solid ${C.line}`, overflow: "hidden",
+            background: previewDevice === "desktop" ? "#fff" : C.paper,
+            boxShadow: "0 24px 60px -36px rgba(0,0,0,.3)",
+            display: "flex", justifyContent: "center",
+            padding: previewDevice === "desktop" ? 0 : 20,
+          }}>
+            <PreviewFrame width={PREVIEW_DEVICES[previewDevice].width} radius={previewDevice === "desktop" ? 0 : 10}
+              editMode={editMode} selectedField={selectedField} onSelect={setSelectedField}>
+              <ThemedSite d={site} />
+            </PreviewFrame>
+          </div>
         </div>
       </div>
     </div>
