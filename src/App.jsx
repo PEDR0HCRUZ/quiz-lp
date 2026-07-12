@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { createPortal } from "react-dom";
 import {
   ArrowRight, Send, MessageCircle, Instagram, Mail, Check,
@@ -12,7 +12,7 @@ import { COLOR_SCHEMES, DEFAULT_COLOR_SCHEME, darken } from "./colorSchemes.js";
 import { ListEditor, Label as EdLabel, inputStyle as edInput } from "./editorControls.jsx";
 
 /* ------------------------------------------------------------------ */
-/*  Avence Psi — v2: onboarding conversacional + login por magic link   */
+/*  PsiPage — v2: onboarding conversacional + login por magic link   */
 /*  1) welcome (nome/email → magic link)  2) conversa suave              */
 /*  3) copy determinística  4) site pronto → publica no Supabase.        */
 /*  Funil de canal único: WhatsApp.                                      */
@@ -77,9 +77,19 @@ const SPECIALTY_TITLES = [
 // prefixo do CRP fica fixo — a pessoa só escolhe a região e digita o número
 const CRP_PREFIXES = ["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12"];
 
+// metadados de tipografia dos dois temas do site — usados no preview combinado
+// tema + paleta na etapa "themeStyle" do onboarding (ver THEME_META abaixo).
+const THEME_META = {
+  classic: { label: "Clássico", desc: "Serifada elegante, atemporal.", headingFont: "'Fraunces', serif", bodyFont: "'Inter', sans-serif", headingWeight: 600, headingStyle: "normal" },
+  editorial: { label: "Autoral", desc: "Editorial quente, com personalidade.", headingFont: "'Instrument Serif', serif", bodyFont: "'Work Sans', sans-serif", headingWeight: 400, headingStyle: "italic" },
+};
+
 /* ---------------------------- conversa ---------------------------- */
 const FLOW = [
-  { key: "specialty", bot: "Prazer, {first}! 🌱 Qual é a sua especialidade?", type: "specialty" },
+  { key: "name", bot: "Oi! 🌱 Antes de começar, como você se chama?", ph: "Seu nome", type: "text" },
+  { key: "themeStyle", bot: "Prazer, {first}! Vamos começar pelo visual — escolhe o estilo do site. Primeiro o tema, depois a paleta de cores. Dá pra trocar tudo depois.", type: "themeStyle" },
+  { key: "link", bot: "Show! Agora escolhe o link do seu site — é por ele que seus pacientes vão te encontrar.", type: "link" },
+  { key: "specialty", bot: "Qual é a sua especialidade?", type: "specialty" },
   { key: "crp", bot: "E o seu registro profissional?", type: "crp" },
   { key: "modalidade", bot: "E você atende de que forma?", type: "chips", options: ["100% Online", "Presencial", "Híbrido"] },
   { key: "endereco", bot: "Qual o endereço do consultório? Vai aparecer no rodapé do site, com um mapa.", ph: "Rua, número, bairro, cidade - UF", type: "text",
@@ -87,7 +97,6 @@ const FLOW = [
   { key: "abordagem", bot: "Qual é a sua abordagem principal?", type: "chips", options: ["TCC", "Psicanálise", "Humanista", "Gestalt"], allowText: true, ph: "Outra..." },
   { key: "temas", bot: "Quais temas você mais atende? Selecione quantos quiser — e adicione os seus no campo abaixo.", type: "cards",
     options: ["Ansiedade", "Depressão", "Autoestima", "Autoconhecimento", "Relacionamentos", "Luto", "Estresse / Burnout", "Traumas", "Síndrome do pânico", "TOC", "Fobias", "Maternidade / Parentalidade"] },
-  { key: "colorScheme", bot: "Vamos escolher a paleta de cores do site. Dá pra trocar depois.", type: "colors", options: Object.keys(COLOR_SCHEMES) },
   { key: "tom", bot: "Que tom combina mais com você?", type: "chips", options: ["Acolhedor", "Leve e próximo", "Direto", "Técnico"] },
   { key: "sobre", bot: "Me conta em poucas frases o que te move como profissional. Se quiser, use um dos começos abaixo — eu já deixo uma frase pronta (no tom que você escolheu) que você pode editar.", ph: "escreva do seu jeito...", type: "text",
     // uma versão de cada começo por tom (etapa anterior) — pra sugestão
@@ -124,12 +133,6 @@ const FLOW = [
   { key: "instagram", bot: "Por fim, seu Instagram — pra fechar o rodapé.", ph: "@seuperfil", type: "text" },
 ];
 
-const GEN_STATUS = [
-  "Lendo suas respostas...", "Escrevendo sua headline...",
-  "Organizando as especialidades...", "Dando forma à sua bio...",
-  "Montando as seções...", "Finalizando o site...",
-];
-
 /* --------------------------- utilities ---------------------------- */
 let _mid = 0;
 const uid = () => ++_mid;
@@ -158,6 +161,9 @@ const formatPhoneBR = (raw) => {
   if (d.length <= 7) return `${d.slice(0, 2)} ${d.slice(2)}`;
   return `${d.slice(0, 2)} ${d.slice(2, 7)}-${d.slice(7)}`;
 };
+// MVP roda só o funil de chat no mobile — checado uma vez ao fim do chat,
+// não precisa reagir a resize (celular não cruza esse breakpoint em uso normal).
+const isMobileViewport = () => window.matchMedia("(max-width: 900px)").matches;
 
 /* -------------------------- copy determinística --------------------- */
 /* Sem IA por enquanto: monta a copy a partir do template + respostas.   */
@@ -170,12 +176,55 @@ function buildCopy(input) {
   };
 }
 
+// monta um objeto "site" válido a partir de QUALQUER estado parcial de
+// answers — usado tanto pro preview ao vivo durante o chat (a cada resposta)
+// quanto pra geração final (runGeneration). Campos ainda não respondidos
+// caem nos DEFAULTS, então o preview nunca fica quebrado/vazio.
+function buildSiteFromAnswers(answers, lead) {
+  const title = answers.crp
+    ? `${answers.specialty || ""} • ${answers.crp}`
+    : (answers.specialty ? `${answers.specialty} • Em formação` : "");
+  const input = {
+    name: lead.name, title, modalidade: answers.modalidade,
+    abordagem: answers.abordagem, temas: answers.temas, tom: answers.tom, sobre: answers.sobre,
+  };
+  const copy = buildCopy(input);
+
+  const selectedTemas = (answers.temas || "").split(",").map((s) => s.trim()).filter(Boolean);
+  const aiSpecs = Array.isArray(copy.specialties) ? copy.specialties : [];
+  const specialties = selectedTemas.length
+    ? selectedTemas.map((t, i) => {
+        const byIndex = aiSpecs[i] && aiSpecs[i].d;
+        const byName = aiSpecs.find((s) => s.t && s.t.toLowerCase() === t.toLowerCase())?.d;
+        return { t, d: byIndex || byName || GENERIC_SPEC_DESC };
+      })
+    : (aiSpecs.length ? aiSpecs : DEFAULTS.specialties);
+
+  const badge = BADGE_BY_MODALIDADE[answers.modalidade] || copy.badge || DEFAULTS.badge;
+  const methodTitle = KNOWN_APPROACHES.includes(answers.abordagem)
+    ? `O que é a ${answers.abordagem}?`
+    : (copy.methodTitle || "Sobre a abordagem");
+
+  return {
+    ...copy,
+    specialties, badge, methodTitle,
+    name: lead.name || "", email: lead.email || "", title,
+    modalidade: answers.modalidade || "", whatsapp: answers.whatsapp || "", instagram: answers.instagram || "",
+    photo: answers.photo || "",
+    logo: answers.logo || "",
+    endereco: answers.endereco || "",
+    waMessage: `Olá! Vi seu site e tenho interesse em agendar uma consulta.`,
+    theme: answers.themeStyle?.theme || "classic",
+    colorScheme: answers.themeStyle?.colorScheme || DEFAULT_COLOR_SCHEME,
+  };
+}
+
 /* =========================== SITE PREVIEW ========================== */
 function SitePreview({ d }) {
   const [openFaq, setOpenFaq] = useState(0);
   const { accent, accentSoft } = COLOR_SCHEMES[d.colorScheme] || COLOR_SCHEMES[DEFAULT_COLOR_SCHEME];
   // versão escura do accent pros blocos de contraste (metodologia, CTA) — antes
-  // eram preto fixo + verde-limão da Avence, que ignoravam a paleta escolhida.
+  // eram preto fixo + verde-limão da PsiPage, que ignoravam a paleta escolhida.
   const accentDeep = darken(accent, 0.55);
   const wa = waLink(d.whatsapp, d.waMessage || `Olá, ${firstName(d.name)}! Tenho interesse em agendar uma consulta.`);
   const Btn = ({ children, primary }) => (
@@ -371,6 +420,19 @@ const FIELD_REGISTRY = {
   benefits: { label: "Diferenciais", type: "list", withDesc: true, labels: ["Título (ex: Conforto)", "Descrição curta"] },
   faq: { label: "Perguntas frequentes", type: "list", withDesc: false, labels: ["Pergunta", "Resposta"] },
 };
+
+// nem toda pergunta do FLOW escreve num data-edit com o mesmo nome (ex:
+// "temas" alimenta "specialties", "sobre" alimenta "bio") — este mapa traduz
+// a key da pergunta pro alvo certo no preview, usado só pelo highlight ao
+// vivo da fase de chat. Perguntas ausentes aqui (crp, link, tom...) não têm
+// um elemento correspondente pra destacar, e o highlight simplesmente não
+// aparece nessas etapas — comportamento esperado, não um bug.
+const FLOW_KEY_TO_PREVIEW_FIELD = {
+  modalidade: "badge",
+  abordagem: "methodTitle",
+  temas: "specialties",
+  sobre: "bio",
+};
 // itens de lista chegam como "specialties.0.t" — normaliza pro campo-base
 // (specialties) que é o que o controle de lista edita por inteiro.
 const baseField = (path) => (path || "").split(".")[0];
@@ -381,8 +443,8 @@ const baseField = (path) => (path || "").split(".")[0];
 const Shell = ({ children }) => (
   <div className="shell-outer" style={{ background: C.paper, fontFamily: "Inter, system-ui, sans-serif", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
     <style>{`
-      @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600&family=Inter:wght@400;500;600;700&display=swap');
-      *{box-sizing:border-box;} body{margin:0;} details summary::-webkit-details-marker{display:none;}
+      @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600&family=Inter:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&family=Work+Sans:wght@400;500;600;700&display=swap');
+      *{box-sizing:border-box;} body{margin:0;overscroll-behavior-y:contain;-webkit-text-size-adjust:100%;} details summary::-webkit-details-marker{display:none;}
       input:focus,textarea:focus{outline:none;border-color:${C.sage} !important;}
       .fade{animation:fade .5s ease both;} @keyframes fade{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:none;}}
       .bub{animation:bub .35s ease both;} @keyframes bub{from{opacity:0;transform:translateY(6px) scale(.98);}to{opacity:1;transform:none;}}
@@ -395,12 +457,20 @@ const Shell = ({ children }) => (
       /* --- mobile: viewport real (evita corte por barra do navegador) --- */
       .shell-outer{ min-height: 100vh; min-height: 100dvh; }
       .welcome-card{ padding: 40px 36px; }
-      .chat-card{ height: min(680px, 92vh); height: min(680px, 92dvh); }
+      .chat-split{ height: min(760px, 88vh); height: min(760px, 88dvh); }
+      .chat-card--split{ height: 100%; }
+      @media (max-width: 900px) {
+        /* MVP roda só o funil de chat no mobile: tela cheia, sem preview ao lado */
+        input, textarea, select { font-size: 16px !important; } /* evita auto-zoom do iOS ao focar */
+        .shell-outer:has(.chat-split){ padding: 0 !important; }
+        .chat-split{ flex-direction: column; height: 100vh !important; height: 100dvh !important; }
+        .chat-card--split{ width: 100% !important; height: 100% !important; border-radius: 0 !important; }
+        .chat-preview-pane{ display: none !important; }
+      }
       @media (max-width: 480px) {
         .shell-outer{ padding: 12px !important; }
         .welcome-card{ padding: 28px 20px !important; border-radius: 18px !important; }
         .welcome-card h1{ font-size: 24px !important; }
-        .chat-card{ height: 94dvh !important; border-radius: 16px !important; }
       }
     `}</style>
     {children}
@@ -408,11 +478,11 @@ const Shell = ({ children }) => (
 );
 
 const Brand = () => (
-  <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
+  <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
     <div style={{ width: 26, height: 26, borderRadius: 7, background: C.dark, display: "flex", alignItems: "center", justifyContent: "center" }}>
       <span style={{ width: 9, height: 9, borderRadius: 2, background: C.acid }} />
     </div>
-    <span style={{ fontWeight: 700, fontSize: 14 }}>Avence <span style={{ color: C.sage }}>Psi</span></span>
+    <span style={{ fontWeight: 700, fontSize: 18, letterSpacing: "-.01em" }}>Psi<span style={{ fontStyle: "italic", color: C.sage }}>Page</span></span>
   </div>
 );
 
@@ -447,6 +517,13 @@ const PREVIEW_FRAME_CSS = `
   body.ed-active [data-edit]{ cursor: pointer; }
   body.ed-active [data-edit]:hover{ outline: 2px dashed ${EDIT_HL}; outline-offset: 2px; border-radius: 4px; }
   body.ed-active [data-edit].ed-selected{ outline: 2px solid ${EDIT_HL}; outline-offset: 2px; border-radius: 4px; }
+  /* construção ao vivo (fase de chat): pulso passageiro no campo recém-preenchido */
+  [data-edit].just-filled{ animation: just-filled-pulse 1.2s ease; border-radius: 4px; }
+  @keyframes just-filled-pulse{
+    0%{ box-shadow: 0 0 0 3px ${EDIT_HL}66; }
+    70%{ box-shadow: 0 0 0 3px ${EDIT_HL}66; }
+    100%{ box-shadow: 0 0 0 0 transparent; }
+  }
 `;
 
 const PREVIEW_DEVICES = {
@@ -460,7 +537,7 @@ const PREVIEW_DEVICES = {
 /* anterior (crescer o iframe até a altura total do conteúdo e deixar o        */
 /* container de fora rolar) dava barra de rolagem fantasma na borda e sobra    */
 /* de espaço no fim das telas menores.                                         */
-function PreviewFrame({ width, radius, children, editMode, selectedField, onSelect }) {
+function PreviewFrame({ width, radius, children, editMode, selectedField, onSelect, highlightField }) {
   const [iframeEl, setIframeEl] = useState(null);
   const [mountNode, setMountNode] = useState(null);
 
@@ -504,6 +581,22 @@ function PreviewFrame({ width, radius, children, editMode, selectedField, onSele
     });
   }, [mountNode, editMode, selectedField, children]);
 
+  // "construção ao vivo": quando um campo acaba de ser respondido no chat,
+  // rola o preview até ele e aplica um pulso de contorno passageiro — sinaliza
+  // pro usuário exatamente onde a resposta caiu no site, sem exigir clique.
+  // "ts" garante que o efeito rode de novo mesmo se o mesmo campo for
+  // respondido duas vezes seguidas (ex: editar a mesma resposta de novo).
+  useEffect(() => {
+    if (!mountNode || !highlightField?.field) return;
+    const base = highlightField.field.split(".")[0];
+    const el = mountNode.querySelector(`[data-edit="${base}"], [data-edit^="${base}."]`);
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    el.classList.add("just-filled");
+    const t = setTimeout(() => el.classList.remove("just-filled"), 1200);
+    return () => clearTimeout(t);
+  }, [mountNode, highlightField?.field, highlightField?.ts]);
+
   return (
     <>
       <iframe ref={setIframeEl} title="Preview do site"
@@ -515,7 +608,7 @@ function PreviewFrame({ width, radius, children, editMode, selectedField, onSele
 
 /* ============================== APP ============================== */
 export default function App() {
-  const [phase, setPhase] = useState("loading"); // loading | public | welcome | chat | generating | site
+  const [phase, setPhase] = useState("loading"); // loading | public | welcome | chat | site | mobile-success | published
   const [lead, setLead] = useState({ name: "", email: "" });
   const [authError, setAuthError] = useState("");
   const [sendingLink, setSendingLink] = useState(false);
@@ -528,6 +621,7 @@ export default function App() {
   const [selectedField, setSelectedField] = useState(null); // caminho do data-edit, ex "headline" ou "faq.1.q"
   const [publishing, setPublishing] = useState(false);
   const [publishedUrl, setPublishedUrl] = useState(null);
+  const [linkCopied, setLinkCopied] = useState(false);
   const [siteSlug, setSiteSlug] = useState(null);
   const [siteStatus, setSiteStatus] = useState("draft");
   const [publicSite, setPublicSite] = useState(undefined); // undefined=carregando null=não achou objeto=achou
@@ -539,7 +633,7 @@ export default function App() {
   const [answers, setAnswers] = useState({});
   const [typing, setTyping] = useState(false);
   const [draft, setDraft] = useState("");
-  const [genLine, setGenLine] = useState(0);
+  const [justFilled, setJustFilled] = useState(null); // { field, ts } da última resposta — dispara scroll+pulso no preview
   const [site, setSite] = useState(null);
   // edição de respostas já enviadas
   const [editingId, setEditingId] = useState(null);
@@ -557,6 +651,11 @@ export default function App() {
   const [specialtyCustom, setSpecialtyCustom] = useState("");
   const [crpPrefix, setCrpPrefix] = useState("07");
   const [crpNumber, setCrpNumber] = useState("");
+  // etapa "themeStyle": dois sub-passos (tema → paleta), cada um leve e isolado
+  const [themeSub, setThemeSub] = useState("theme"); // "theme" | "colorScheme"
+  const [themeSel, setThemeSel] = useState("classic");
+  // etapa "link": slug do site, pré-preenchido a partir do nome já informado
+  const [linkSlug, setLinkSlug] = useState("");
   const fileRef = useRef(null);
   const scrollRef = useRef(null);
   const composerRef = useRef(null);
@@ -566,10 +665,18 @@ export default function App() {
   const step = FLOW[stepIdx];
   const editingFlowStep = editingKey ? FLOW.find((f) => f.key === editingKey) : null;
   const activeType = editingFlowStep ? editingFlowStep.type : step?.type;
+  // site derivado ao vivo das respostas dadas até agora — usado pelo preview
+  // ao lado do chat, que vai se montando campo a campo conforme a conversa avança.
+  const previewSite = useMemo(() => buildSiteFromAnswers(answers, lead), [answers, lead]);
 
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [msgs, typing]);
+
+  // pré-preenche o slug sugerido com o nome assim que a etapa "link" abre
+  useEffect(() => {
+    if (activeType === "link" && !linkSlug) setLinkSlug(slugify(answers.name || lead.name));
+  }, [activeType]);
 
   // textarea da resposta longa ("sobre") cresce junto com o texto até um
   // teto, em vez de ficar 1 linha só e obrigar a rolar pra ler o que já foi
@@ -596,8 +703,8 @@ export default function App() {
   // que a pessoa clica no link recebido por e-mail (onAuthStateChange trata
   // a volta, lá embaixo).
   const sendMagicLink = async () => {
-    if (!lead.name.trim() || !/\S+@\S+\.\S+/.test(lead.email)) return;
-    const name = titleCase(lead.name);
+    if (!/\S+@\S+\.\S+/.test(lead.email)) return;
+    const name = titleCase(lead.name.trim() || lead.email.split("@")[0].replace(/[._-]+/g, " "));
     setLead((l) => ({ ...l, name }));
     setSendingLink(true);
     setAuthError("");
@@ -650,6 +757,12 @@ export default function App() {
   // roteamento simples (path != "/" = site público) + sessão existente (magic link)
   useEffect(() => {
     const path = window.location.pathname.replace(/^\/+|\/+$/g, "");
+    if (path === "__preview-success") {
+      setLead({ name: "Ana Beatriz", email: "ana@exemplo.com" });
+      setPublishedUrl(`${window.location.origin}/ana-beatriz`);
+      setPhase("published");
+      return;
+    }
     if (path) {
       setPhase("public");
       supabase.from("sites").select("data").eq("slug", path).eq("status", "published").maybeSingle()
@@ -798,9 +911,13 @@ export default function App() {
     const slug = await saveSite("published", site, answers);
     setPublishing(false);
     if (!slug) { setAuthError("Erro ao publicar."); return; }
+    const wasAlreadyPublished = siteStatus === "published";
     setSiteSlug(slug);
     setSiteStatus("published");
     setPublishedUrl(`${window.location.origin}/${slug}`);
+    // celebra só na primeira publicação de verdade — se ela já estava
+    // publicada (ex: só editou e clicou "Atualizar site"), fica no editor.
+    if (!wasAlreadyPublished) setPhase("published");
   };
 
   const startCheckout = async (plan) => {
@@ -837,11 +954,12 @@ export default function App() {
   }, [phase]);
 
   const advance = (merged) => {
+    setJustFilled({ field: FLOW_KEY_TO_PREVIEW_FIELD[step.key] || step.key, ts: Date.now() });
     let nextIdx = stepIdx + 1;
     while (nextIdx < FLOW.length && FLOW[nextIdx].skipIf && FLOW[nextIdx].skipIf(merged)) nextIdx++;
     if (nextIdx < FLOW.length) {
       setStepIdx(nextIdx);
-      botSay(FLOW[nextIdx].bot.replace("{first}", firstName(lead.name)));
+      botSay(FLOW[nextIdx].bot.replace("{first}", firstName(merged.name || lead.name)));
     } else {
       setTimeout(() => runGeneration(merged), 500);
     }
@@ -850,6 +968,16 @@ export default function App() {
   const submit = (value) => {
     if (!value || !value.trim()) return;
     const key = step.key;
+    if (key === "name") {
+      const name = titleCase(value);
+      setLead((l) => ({ ...l, name }));
+      setMsgs((m) => [...m, { id: uid(), role: "user", text: name, key }]);
+      const merged = { ...answers, [key]: name };
+      setAnswers(merged);
+      setDraft("");
+      advance(merged);
+      return;
+    }
     setMsgs((m) => [...m, { id: uid(), role: "user", text: value, key }]);
     const merged = { ...answers, [key]: value };
     setAnswers(merged);
@@ -867,6 +995,7 @@ export default function App() {
     setMsgs((m) => m.map((x) => (x.key === key ? { ...x, text, ...msgExtra } : x)));
     setAnswers((a) => ({ ...a, [key]: value }));
     setEditingKey(null);
+    setJustFilled({ field: FLOW_KEY_TO_PREVIEW_FIELD[key] || key, ts: Date.now() });
     return true;
   };
 
@@ -905,6 +1034,37 @@ export default function App() {
     const merged = { ...answers, crp: "" };
     setAnswers(merged);
     setCrpNumber("");
+    advance(merged);
+  };
+
+  // --- estilo do site: tema (sub-passo 1) → paleta (sub-passo 2) ---
+  // as duas escolhas só viram resposta (e avançam o FLOW) ao fim do sub-passo 2,
+  // pra manter uma única bolha "Autoral • Sálvia" em vez de duas mensagens soltas.
+  const chooseTheme = (key) => { setThemeSel(key); setThemeSub("colorScheme"); };
+  const confirmColorScheme = (colorScheme) => {
+    const value = { theme: themeSel, colorScheme };
+    const text = `${THEME_META[themeSel].label} • ${colorScheme}`;
+    if (applyAnswer("themeStyle", text, value)) {
+      setThemeSub("theme");
+      return;
+    }
+    setMsgs((m) => [...m, { id: uid(), role: "user", text, key: "themeStyle" }]);
+    const merged = { ...answers, themeStyle: value };
+    setAnswers(merged);
+    setThemeSub("theme");
+    advance(merged);
+  };
+
+  // --- link do site (slug) --- sem checagem de disponibilidade ainda, só confirma o valor digitado
+  const confirmLink = () => {
+    const slug = slugify(linkSlug) || slugify(lead.name);
+    if (!slug) return;
+    const text = `psipage.com/${slug}`;
+    if (applyAnswer("link", text, slug)) { setLinkSlug(""); return; }
+    setMsgs((m) => [...m, { id: uid(), role: "user", text, key: "link" }]);
+    const merged = { ...answers, link: slug };
+    setAnswers(merged);
+    setLinkSlug("");
     advance(merged);
   };
 
@@ -950,6 +1110,17 @@ export default function App() {
       setEditingKey(m.key);
       return;
     }
+    if (flowStep?.type === "link") {
+      setLinkSlug(m.text.replace(/^psipage\.com\//, ""));
+      setEditingKey(m.key);
+      return;
+    }
+    if (flowStep?.type === "themeStyle") {
+      setThemeSel(answers.themeStyle?.theme || "classic");
+      setThemeSub("theme");
+      setEditingKey(m.key);
+      return;
+    }
     if (flowStep?.type === "cards") {
       setCardSel(m.text.split(",").map((s) => s.trim()).filter(Boolean));
       setEditingKey(m.key);
@@ -961,7 +1132,7 @@ export default function App() {
       setEditingKey(m.key);
       return;
     }
-    if (flowStep?.type === "chips" || flowStep?.type === "colors") {
+    if (flowStep?.type === "chips") {
       setEditingKey(m.key);
       return;
     }
@@ -984,6 +1155,7 @@ export default function App() {
     setCardSel([]);
     setSpecialtySel(""); setSpecialtyCustom("");
     setCrpNumber("");
+    setThemeSub("theme");
   };
 
   // --- seleção de cards (temas) ---
@@ -1012,62 +1184,19 @@ export default function App() {
   };
 
   const runGeneration = (all) => {
-    setPhase("generating");
-    // título final: especialidade + registro (ou "em formação" se ainda não tiver CRP)
-    const title = all.crp ? `${all.specialty} • ${all.crp}` : `${all.specialty} • Em formação`;
-    const input = {
-      name: lead.name, title, modalidade: all.modalidade,
-      abordagem: all.abordagem, temas: all.temas, tom: all.tom, sobre: all.sobre,
-    };
-    // status rotativo — só pacing visual, não espera nenhuma rede
-    let i = 0;
-    const iv = setInterval(() => { i = (i + 1) % GEN_STATUS.length; setGenLine(i); }, 450);
-
-    setTimeout(() => {
-      clearInterval(iv);
-      const copy = buildCopy(input);
-
-      // --- A SELEÇÃO É VERDADE: forçamos os valores escolhidos ---
-      const selectedTemas = (all.temas || "").split(",").map((s) => s.trim()).filter(Boolean);
-      const aiSpecs = Array.isArray(copy.specialties) ? copy.specialties : [];
-      const finalSpecialties = selectedTemas.length
-        ? selectedTemas.map((t, i) => {
-            const byIndex = aiSpecs[i] && aiSpecs[i].d;
-            const byName = aiSpecs.find((s) => s.t && s.t.toLowerCase() === t.toLowerCase())?.d;
-            return { t, d: byIndex || byName || GENERIC_SPEC_DESC };
-          })
-        : (aiSpecs.length ? aiSpecs : DEFAULTS.specialties);
-
-      const badge = BADGE_BY_MODALIDADE[all.modalidade] || copy.badge || DEFAULTS.badge;
-      const methodTitle = KNOWN_APPROACHES.includes(all.abordagem)
-        ? `O que é a ${all.abordagem}?`
-        : (copy.methodTitle || "Sobre a abordagem");
-
-      const siteObj = {
-        ...copy,
-        specialties: finalSpecialties,
-        badge,
-        methodTitle,
-        name: lead.name, email: lead.email, title,
-        modalidade: all.modalidade, whatsapp: all.whatsapp, instagram: all.instagram,
-        photo: all.photo || "",
-        logo: all.logo || "",
-        endereco: all.endereco || "",
-        waMessage: `Olá! Vi seu site e tenho interesse em agendar uma consulta.`,
-        theme: "classic",
-        colorScheme: all.colorScheme || DEFAULT_COLOR_SCHEME,
-      };
-      setSite(siteObj);
-      setPhase("site");
-      // salva como rascunho assim que o site é gerado — se ela sair (ex: pro
-      // checkout) e voltar, o hydrate() consegue restaurar isso.
-      saveSite("draft", siteObj, all).then((slug) => { if (slug) setSiteSlug(slug); });
-    }, GEN_STATUS.length * 450 + 300);
+    const siteObj = buildSiteFromAnswers(all, lead);
+    setSite(siteObj);
+    // MVP mobile: sem editor com sidebar — cai numa tela simples de publicar.
+    // Quem já tem site salvo (hydrate()) continua indo pro editor normalmente.
+    setPhase(isMobileViewport() ? "mobile-success" : "site");
+    // salva como rascunho assim que o site é gerado — se ela sair (ex: pro
+    // checkout) e voltar, o hydrate() consegue restaurar isso.
+    saveSite("draft", siteObj, all).then((slug) => { if (slug) setSiteSlug(slug); });
   };
 
   /* -------- render por fase -------- */
 
-  /* ---- PÁGINA PÚBLICA (avence-psi.com/slug) ---- */
+  /* ---- PÁGINA PÚBLICA (psipage.com/slug) ---- */
   if (phase === "public") {
     const fontStyle = (
       <style>{`@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600&family=Inter:wght@400;500;600;700&display=swap');
@@ -1135,6 +1264,28 @@ export default function App() {
     </div>
   );
 
+  // card de escolha de plano (mensal/anual) — usado tanto no editor ("site")
+  // quanto na tela simplificada de publicar do MVP mobile ("mobile-success").
+  const renderPlanPicker = () => (
+    <div className="fade" style={{ marginBottom: 16, padding: 18, borderRadius: 14, background: C.sageSoft, border: `1px solid ${C.line}`, textAlign: "left" }}>
+      <p style={{ margin: "0 0 4px", fontSize: 14.5, fontWeight: 600 }}>Escolha um plano pra publicar</p>
+      <p style={{ margin: "0 0 14px", fontSize: 13, color: C.sub }}>Sua página fica no ar enquanto a assinatura estiver ativa.</p>
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+        <button onClick={() => startCheckout("monthly")} disabled={checkingOut}
+          style={{ flex: "1 1 180px", padding: "14px 16px", borderRadius: 12, border: `1px solid ${C.line}`, background: "#fff", cursor: checkingOut ? "default" : "pointer", textAlign: "left" }}>
+          <div style={{ fontWeight: 700, fontSize: 14 }}>Mensal</div>
+          <div style={{ fontSize: 13, color: C.sub }}>R$ 49,90/mês</div>
+        </button>
+        <button onClick={() => startCheckout("yearly")} disabled={checkingOut}
+          style={{ flex: "1 1 180px", padding: "14px 16px", borderRadius: 12, border: `2px solid ${C.sage}`, background: "#fff", cursor: checkingOut ? "default" : "pointer", textAlign: "left" }}>
+          <div style={{ fontWeight: 700, fontSize: 14, color: C.sage }}>Anual</div>
+          <div style={{ fontSize: 13, color: C.sub }}>R$ 29,90/mês — cobrado R$ 358,80/ano</div>
+        </button>
+      </div>
+      {checkingOut && <p style={{ margin: "10px 0 0", fontSize: 12.5, color: C.sub }}>Abrindo o checkout...</p>}
+    </div>
+  );
+
   /* ---- LOADING inicial (checando sessão) ---- */
   if (phase === "loading") {
     return <Shell><div className="fade" style={{ color: C.sub, fontSize: 14 }}>Carregando...</div></Shell>;
@@ -1142,7 +1293,7 @@ export default function App() {
 
   /* ---- WELCOME / login por magic link ---- */
   if (phase === "welcome") {
-    const ok = lead.name.trim() && /\S+@\S+\.\S+/.test(lead.email);
+    const ok = /\S+@\S+\.\S+/.test(lead.email);
     if (linkSent) {
       return (
         <Shell>
@@ -1180,19 +1331,14 @@ export default function App() {
         <div className="fade welcome-card" style={{ width: "100%", maxWidth: 440, background: C.panel, border: `1px solid ${C.line}`, borderRadius: 22, boxShadow: "0 30px 70px -40px rgba(0,0,0,.3)" }}>
           <Brand />
           <h1 style={{ fontFamily: "Fraunces, serif", fontSize: 30, fontWeight: 600, lineHeight: 1.12, margin: "26px 0 12px", letterSpacing: "-.01em" }}>
-            Vamos criar o seu site em uma conversa.
+            Site para psicólogo, simples como uma conversa.
           </h1>
           <p style={{ color: C.sub, fontSize: 15, lineHeight: 1.6, margin: "0 0 28px" }}>
-            Sem formulários intermináveis. Responda algumas perguntas do seu jeito e a gente escreve tudo pra você. Leva uns 3 minutos.
+            Sem formulário, sem tela em branco. Você responde, a gente escreve — pronto em uns 3 minutos.
           </p>
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             <div>
-              <div style={{ fontSize: 12, color: C.sub, marginBottom: 6, fontWeight: 500 }}>Seu nome</div>
-              <input value={lead.name} onChange={(e) => setLead({ ...lead, name: e.target.value })} placeholder="Marina Costa"
-                style={{ width: "100%", padding: "13px 15px", borderRadius: 11, border: `1px solid ${C.line}`, background: "#fff", fontSize: 15, fontFamily: "Inter" }} />
-            </div>
-            <div>
-              <div style={{ fontSize: 12, color: C.sub, marginBottom: 6, fontWeight: 500 }}>Seu melhor e-mail</div>
+              <div style={{ fontSize: 12, color: C.sub, marginBottom: 6, fontWeight: 500 }}>Qual seu e-mail mesmo?</div>
               <input value={lead.email} onChange={(e) => setLead({ ...lead, email: e.target.value })} placeholder="voce@email.com"
                 onKeyDown={(e) => e.key === "Enter" && sendMagicLink()}
                 style={{ width: "100%", padding: "13px 15px", borderRadius: 11, border: `1px solid ${C.line}`, background: "#fff", fontSize: 15, fontFamily: "Inter" }} />
@@ -1201,10 +1347,10 @@ export default function App() {
           {authError && <p style={{ color: "#B3453A", fontSize: 13, margin: "12px 0 0" }}>{authError}</p>}
           <button onClick={sendMagicLink} disabled={!ok || sendingLink}
             style={{ marginTop: 22, width: "100%", padding: "14px", borderRadius: 999, border: "none", cursor: ok && !sendingLink ? "pointer" : "default", background: ok ? C.dark : "#D9D5CA", color: "#fff", fontWeight: 600, fontSize: 15, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8, transition: "background .2s" }}>
-            {sendingLink ? "Enviando..." : "Entrar por e-mail"} <ArrowRight size={17} />
+            {sendingLink ? "Enviando..." : "Entrar"} <ArrowRight size={17} />
           </button>
           <p style={{ fontSize: 11.5, color: C.sub, textAlign: "center", margin: "14px 0 0" }}>
-            Sem senha — a gente manda um link de acesso pro seu e-mail.
+            100% seguro, sem spam.
           </p>
         </div>
       </Shell>
@@ -1215,7 +1361,8 @@ export default function App() {
   if (phase === "chat") {
     return (
       <Shell>
-        <div className="chat-card" style={{ width: "100%", maxWidth: 480, background: C.panel, border: `1px solid ${C.line}`, borderRadius: 22, display: "flex", flexDirection: "column", overflow: "hidden", boxShadow: "0 30px 70px -40px rgba(0,0,0,.3)" }}>
+        <div className="chat-split" style={{ width: "100%", maxWidth: 1180, display: "flex", gap: 20 }}>
+        <div className="chat-card chat-card--split" style={{ width: 420, flexShrink: 0, background: C.panel, border: `1px solid ${C.line}`, borderRadius: 22, display: "flex", flexDirection: "column", overflow: "hidden", boxShadow: "0 30px 70px -40px rgba(0,0,0,.3)" }}>
           <div style={{ padding: "16px 20px", borderBottom: `1px solid ${C.line}`, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <Brand />
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -1302,19 +1449,42 @@ export default function App() {
                 ))}
               </div>
             )}
-            {!typing && activeType === "colors" && (
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 8, marginBottom: 4 }}>
-                {(editingFlowStep || step).options.map((o) => (
-                  <button key={o} onClick={() => chooseChip(o)}
-                    style={{ display: "flex", flexDirection: "column", gap: 8, padding: "10px 12px", borderRadius: 12, border: `1px solid ${C.line}`, background: "#fff", cursor: "pointer", textAlign: "left" }}>
-                    <div style={{ display: "flex", borderRadius: 7, overflow: "hidden", height: 22 }}>
-                      {COLOR_SCHEMES[o].swatches.map((sw, i) => (
-                        <div key={i} style={{ flex: 1, background: sw }} />
-                      ))}
-                    </div>
-                    <span style={{ fontSize: 12.5, fontWeight: 600, color: C.ink }}>{o}</span>
+            {!typing && activeType === "themeStyle" && themeSub === "theme" && (
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 8, marginBottom: 4 }}>
+                {Object.entries(THEME_META).map(([key, meta]) => (
+                  <button key={key} onClick={() => chooseTheme(key)}
+                    style={{ display: "flex", flexDirection: "column", gap: 6, padding: "14px 14px 12px", borderRadius: 12, border: `1px solid ${C.line}`, background: "#fff", cursor: "pointer", textAlign: "left" }}>
+                    <span style={{ fontFamily: meta.headingFont, fontWeight: meta.headingWeight, fontStyle: meta.headingStyle, fontSize: 20, color: C.ink, lineHeight: 1.15 }}>Aa</span>
+                    <span style={{ fontFamily: meta.bodyFont, fontSize: 11.5, color: C.sub, lineHeight: 1.4 }}>{meta.desc}</span>
+                    <span style={{ fontSize: 12.5, fontWeight: 600, color: C.ink, marginTop: 2 }}>{meta.label}</span>
                   </button>
                 ))}
+              </div>
+            )}
+            {!typing && activeType === "themeStyle" && themeSub === "colorScheme" && (
+              <div>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+                  <span style={{ fontSize: 12, color: C.sub, fontWeight: 500 }}>Tema: <b style={{ color: C.ink }}>{THEME_META[themeSel].label}</b></span>
+                  <button onClick={() => setThemeSub("theme")} style={{ background: "none", border: "none", color: C.sage, fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+                    Trocar tema
+                  </button>
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 8, marginBottom: 4 }}>
+                  {Object.keys(COLOR_SCHEMES).map((o) => (
+                    <button key={o} onClick={() => confirmColorScheme(o)}
+                      style={{ display: "flex", flexDirection: "column", gap: 8, padding: "10px 12px", borderRadius: 12, border: `1px solid ${C.line}`, background: "#fff", cursor: "pointer", textAlign: "left" }}>
+                      <span style={{ fontFamily: THEME_META[themeSel].headingFont, fontWeight: THEME_META[themeSel].headingWeight, fontStyle: THEME_META[themeSel].headingStyle, fontSize: 15, color: COLOR_SCHEMES[o].accent, lineHeight: 1.2 }}>
+                        Título aqui
+                      </span>
+                      <div style={{ display: "flex", borderRadius: 7, overflow: "hidden", height: 18 }}>
+                        {COLOR_SCHEMES[o].swatches.map((sw, i) => (
+                          <div key={i} style={{ flex: 1, background: sw }} />
+                        ))}
+                      </div>
+                      <span style={{ fontSize: 12.5, fontWeight: 600, color: C.ink }}>{o}</span>
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
             {!typing && activeType === "specialty" && (
@@ -1359,8 +1529,8 @@ export default function App() {
                 <div style={{ display: "flex", gap: 9, alignItems: "center", marginBottom: 10 }}>
                   <div style={{ display: "flex", alignItems: "center", flex: 1, minWidth: 0, border: `1px solid ${C.line}`, borderRadius: 999, background: "#fff", overflow: "hidden" }}>
                     <span style={{ padding: "11px 0 11px 15px", fontSize: 14, fontWeight: 600, color: C.sub, whiteSpace: "nowrap" }}>CRP {crpPrefix}/</span>
-                    <input value={crpNumber} onChange={(e) => setCrpNumber(e.target.value.replace(/\D/g, ""))}
-                      placeholder="000000" inputMode="numeric" onKeyDown={(e) => e.key === "Enter" && confirmCrp()}
+                    <input value={crpNumber} onChange={(e) => setCrpNumber(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                      placeholder="000000" inputMode="numeric" maxLength={6} onKeyDown={(e) => e.key === "Enter" && confirmCrp()}
                       style={{ flex: 1, minWidth: 0, border: "none", padding: "11px 15px 11px 4px", fontSize: 14, fontFamily: "Inter", background: "transparent" }} />
                   </div>
                   <button onClick={confirmCrp} disabled={!crpNumber.trim()} aria-label="Continuar"
@@ -1375,6 +1545,28 @@ export default function App() {
                   style={{ width: "100%", padding: "10px", borderRadius: 999, border: `1px dashed ${C.line}`, background: "transparent", color: C.sub, fontWeight: 500, fontSize: 12.5, cursor: "pointer" }}>
                   Ainda não tenho registro (estou em formação)
                 </button>
+              </div>
+            )}
+            {!typing && activeType === "link" && (
+              <div>
+                <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 8 }}>
+                  <div style={{ display: "flex", alignItems: "center", flex: 1, minWidth: 0, border: `1px solid ${C.line}`, borderRadius: 999, background: "#fff", overflow: "hidden" }}>
+                    <span style={{ padding: "11px 0 11px 15px", fontSize: 13.5, color: C.sub, whiteSpace: "nowrap" }}>psipage.com/</span>
+                    <input value={linkSlug} onChange={(e) => setLinkSlug(slugify(e.target.value))}
+                      placeholder="seu-nome" onKeyDown={(e) => e.key === "Enter" && confirmLink()}
+                      style={{ flex: 1, minWidth: 0, border: "none", padding: "11px 15px 11px 4px", fontSize: 14, fontFamily: "Inter", background: "transparent" }} />
+                  </div>
+                  <button onClick={confirmLink} disabled={!linkSlug.trim()} aria-label="Continuar"
+                    style={{ width: 44, height: 44, flexShrink: 0, borderRadius: 999, border: "none",
+                      background: linkSlug.trim() ? C.dark : "#D9D5CA", color: "#fff",
+                      cursor: linkSlug.trim() ? "pointer" : "default",
+                      display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <ArrowRight size={17} />
+                  </button>
+                </div>
+                <p style={{ fontSize: 12, color: C.sub, margin: 0, paddingLeft: 2 }}>
+                  Pode trocar depois. Quer um domínio só seu? Dá pra conectar no plano Pro.
+                </p>
               </div>
             )}
             {!typing && activeType === "image" && (
@@ -1489,22 +1681,82 @@ export default function App() {
             )}
           </div>
         </div>
+        <div className="chat-preview-pane fade" style={{ flex: 1, minWidth: 0, borderRadius: 18, border: `1px solid ${C.line}`, overflow: "hidden", background: "#fff", boxShadow: "0 24px 60px -36px rgba(0,0,0,.3)" }}>
+          <PreviewFrame width="100%" radius={0} highlightField={justFilled}>
+            <ThemedSite d={previewSite} />
+          </PreviewFrame>
+        </div>
+        </div>
       </Shell>
     );
   }
 
-  /* ---- GENERATING ---- */
-  if (phase === "generating") {
+  /* ---- MVP MOBILE: chat terminou, sem editor — só confirmar e publicar ---- */
+  if (phase === "mobile-success") {
     return (
       <Shell>
-        <div className="fade" style={{ textAlign: "center", maxWidth: 400 }}>
-          <div style={{ width: 56, height: 56, borderRadius: 16, background: C.dark, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 24px" }}>
-            <Loader2 size={26} color={C.acid} className="spin" />
+        <div className="fade" style={{ textAlign: "center", maxWidth: 460, width: "100%" }}>
+          <div style={{ width: 56, height: 56, borderRadius: 16, background: C.sage, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 24px" }}>
+            <Check size={26} color="#fff" />
           </div>
           <h2 style={{ fontFamily: "Fraunces, serif", fontSize: 26, fontWeight: 600, margin: "0 0 10px" }}>
-            Escrevendo seu site, {firstName(lead.name)}.
+            Prontinho, {firstName(lead.name)}!
           </h2>
-          <p style={{ color: C.sub, fontSize: 15, transition: "opacity .3s" }}>{GEN_STATUS[genLine]}</p>
+          <p style={{ color: C.sub, fontSize: 15, margin: "0 0 24px" }}>
+            Recebemos suas respostas e seu site já está pronto. Publique agora pra ele ficar no ar.
+          </p>
+          {showPlanPicker ? renderPlanPicker() : (
+            <button onClick={publishSite} disabled={publishing}
+              style={{ width: "100%", padding: "14px", borderRadius: 999, border: "none", cursor: publishing ? "default" : "pointer", background: C.dark, color: "#fff", fontWeight: 600, fontSize: 15, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+              <Check size={16} /> {publishing ? "Publicando..." : "Publicar meu site"}
+            </button>
+          )}
+          {authError && <p style={{ color: "#B3453A", fontSize: 13, margin: "12px 0 0" }}>{authError}</p>}
+        </div>
+      </Shell>
+    );
+  }
+
+  /* ---- PUBLICADO (aha moment) ---- */
+  if (phase === "published") {
+    return (
+      <Shell>
+        <div className="fade" style={{ textAlign: "center", maxWidth: 460, width: "100%" }}>
+          <div style={{ width: 56, height: 56, borderRadius: 16, background: C.sage, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 24px" }}>
+            <Check size={26} color="#fff" />
+          </div>
+          <h2 style={{ fontFamily: "Fraunces, serif", fontSize: 28, fontWeight: 600, margin: "0 0 10px" }}>
+            Seu site está no ar, {firstName(lead.name)}.
+          </h2>
+          <p style={{ color: C.sub, fontSize: 15, margin: "0 0 28px" }}>
+            Já pode compartilhar esse link com suas pacientes.
+          </p>
+
+          <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "12px 12px 12px 18px", borderRadius: 12, background: C.panel, border: `1px solid ${C.line}`, marginBottom: 16 }}>
+            <span style={{ flex: 1, minWidth: 0, textAlign: "left", fontSize: 14.5, fontWeight: 600, color: C.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {publishedUrl?.replace(/^https?:\/\//, "")}
+            </span>
+            <button onClick={() => { navigator.clipboard?.writeText(publishedUrl); setLinkCopied(true); setTimeout(() => setLinkCopied(false), 1800); }}
+              style={{ padding: "9px 14px", borderRadius: 9, border: "none", background: linkCopied ? C.sage : C.dark, color: "#fff", fontWeight: 600, fontSize: 13, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6, whiteSpace: "nowrap", transition: "background .15s" }}>
+              <Copy size={14} /> {linkCopied ? "Copiado!" : "Copiar link"}
+            </button>
+          </div>
+
+          <div style={{ display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap" }}>
+            <a href={publishedUrl} target="_blank" rel="noreferrer"
+              style={{ padding: "12px 20px", borderRadius: 999, border: "none", background: C.dark, color: "#fff", fontWeight: 600, fontSize: 14, cursor: "pointer", textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 7 }}>
+              <ExternalLink size={15} /> Ver site no ar
+            </a>
+            <a href={`https://wa.me/?text=${encodeURIComponent(`Acabei de criar meu site! Dá uma olhada: ${publishedUrl}`)}`} target="_blank" rel="noreferrer"
+              style={{ padding: "12px 20px", borderRadius: 999, border: `1px solid ${C.line}`, background: "#fff", color: C.ink, fontWeight: 600, fontSize: 14, cursor: "pointer", textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 7 }}>
+              <MessageCircle size={15} /> Compartilhar
+            </a>
+          </div>
+
+          <button onClick={() => setPhase("site")}
+            style={{ marginTop: 28, padding: 0, border: "none", background: "none", color: C.sub, fontSize: 13.5, cursor: "pointer", textDecoration: "underline" }}>
+            Continuar editando o site
+          </button>
         </div>
       </Shell>
     );
@@ -1530,6 +1782,8 @@ export default function App() {
           .site-editor-cols { flex-direction: column; }
           .site-sidebar { width: 100% !important; position: static !important; flex-direction: row !important; flex-wrap: wrap; gap: 20px !important; }
           .site-sidebar > div { flex: 1 1 200px; }
+          /* quem já tem site salvo continua caindo aqui mesmo no mobile (hydrate()) — evita auto-zoom do iOS */
+          input, textarea, select { font-size: 16px !important; }
         }
         @media (max-width: 480px) {
           .site-done-wrap { padding: 12px !important; }
@@ -1580,25 +1834,7 @@ export default function App() {
             {renderAccountMenu()}
           </div>
         </div>
-        {showPlanPicker && (
-          <div className="fade" style={{ marginBottom: 16, padding: 18, borderRadius: 14, background: C.sageSoft, border: `1px solid ${C.line}` }}>
-            <p style={{ margin: "0 0 4px", fontSize: 14.5, fontWeight: 600 }}>Escolha um plano pra publicar</p>
-            <p style={{ margin: "0 0 14px", fontSize: 13, color: C.sub }}>Sua página fica no ar enquanto a assinatura estiver ativa.</p>
-            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-              <button onClick={() => startCheckout("monthly")} disabled={checkingOut}
-                style={{ flex: "1 1 180px", padding: "14px 16px", borderRadius: 12, border: `1px solid ${C.line}`, background: "#fff", cursor: checkingOut ? "default" : "pointer", textAlign: "left" }}>
-                <div style={{ fontWeight: 700, fontSize: 14 }}>Mensal</div>
-                <div style={{ fontSize: 13, color: C.sub }}>R$ 49,90/mês</div>
-              </button>
-              <button onClick={() => startCheckout("yearly")} disabled={checkingOut}
-                style={{ flex: "1 1 180px", padding: "14px 16px", borderRadius: 12, border: `2px solid ${C.sage}`, background: "#fff", cursor: checkingOut ? "default" : "pointer", textAlign: "left" }}>
-                <div style={{ fontWeight: 700, fontSize: 14, color: C.sage }}>Anual</div>
-                <div style={{ fontSize: 13, color: C.sub }}>R$ 29,90/mês — cobrado R$ 358,80/ano</div>
-              </button>
-            </div>
-            {checkingOut && <p style={{ margin: "10px 0 0", fontSize: 12.5, color: C.sub }}>Abrindo o checkout...</p>}
-          </div>
-        )}
+        {showPlanPicker && renderPlanPicker()}
         {authError && (
           <div className="fade" style={{ marginBottom: 12, fontSize: 13, color: "#B3453A" }}>{authError}</div>
         )}
