@@ -2,10 +2,9 @@
 // recorrente) na Asaas pro dono autenticado da requisição.
 import { createClient } from "@supabase/supabase-js";
 
-const PLANS = {
-  monthly: { cycle: "MONTHLY", value: 49.90 },
-  yearly: { cycle: "YEARLY", value: 358.80 },
-};
+// Plano único enquanto testamos o mercado: R$29/mês. Mantemos o campo `plan`
+// no banco (sempre 'monthly') pra não mexer no schema de subscriptions.
+const PLAN = { cycle: "MONTHLY", value: 29.00 };
 
 const ASAAS_BASE = process.env.ASAAS_ENV === "production"
   ? "https://api.asaas.com/v3"
@@ -17,12 +16,8 @@ export default async function handler(req, res) {
     return;
   }
 
-  const { plan, name, email } = req.body || {};
-  const planConfig = PLANS[plan];
-  if (!planConfig) {
-    res.status(400).json({ error: "plan inválido (use 'monthly' ou 'yearly')" });
-    return;
-  }
+  // plano único: ignoramos qualquer variação vinda do body e sempre usamos PLAN.
+  const planConfig = PLAN;
 
   const authHeader = req.headers.authorization || "";
   const token = authHeader.replace(/^Bearer\s+/i, "");
@@ -85,7 +80,7 @@ export default async function handler(req, res) {
   const checkoutId = data.id || url?.split("/").filter(Boolean).pop();
   await supabase.from("subscriptions").upsert({
     owner_id: ownerId,
-    plan,
+    plan: "monthly",
     asaas_checkout_id: checkoutId,
     status: "inactive",
   });

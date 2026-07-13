@@ -6,10 +6,11 @@ import {
   LogOut, ChevronDown, Inbox, Monitor, Tablet, Smartphone, Copy, ExternalLink,
 } from "lucide-react";
 import { supabase } from "./lib/supabase.js";
-import { slugify, withSuffix } from "./lib/slug.js";
+import { slugify, slugLive, withSuffix } from "./lib/slug.js";
 import { SitePreviewEditorial } from "./ThemeEditorial.jsx";
 import { COLOR_SCHEMES, DEFAULT_COLOR_SCHEME, darken } from "./colorSchemes.js";
 import { ListEditor, Label as EdLabel, inputStyle as edInput } from "./editorControls.jsx";
+import OnboardingQuiz from "./quiz/OnboardingQuiz.jsx";
 
 /* ------------------------------------------------------------------ */
 /*  PsiPage — v2: onboarding conversacional + login por magic link   */
@@ -757,6 +758,7 @@ export default function App() {
   // roteamento simples (path != "/" = site público) + sessão existente (magic link)
   useEffect(() => {
     const path = window.location.pathname.replace(/^\/+|\/+$/g, "");
+    if (path === "__quiz") { setPhase("devquiz"); return; } // rota de dev: testar o novo quiz isolado
     if (path === "__preview-success") {
       setLead({ name: "Ana Beatriz", email: "ana@exemplo.com" });
       setPublishedUrl(`${window.location.origin}/ana-beatriz`);
@@ -1264,8 +1266,10 @@ export default function App() {
     </div>
   );
 
-  // card de escolha de plano (mensal/anual) — usado tanto no editor ("site")
-  // quanto na tela simplificada de publicar do MVP mobile ("mobile-success").
+  // card de escolha de plano (mensal/anual). TEMPORARIAMENTE fora da UI: o
+  // checkout vai ser movido pra tela de sucesso / pós teste (ver Notion). A
+  // infra de pagamento (startCheckout, gate em publishSite) segue ativa; este
+  // render fica guardado pra ser religado no novo lugar — não é código morto.
   const renderPlanPicker = () => (
     <div className="fade" style={{ marginBottom: 16, padding: 18, borderRadius: 14, background: C.sageSoft, border: `1px solid ${C.line}`, textAlign: "left" }}>
       <p style={{ margin: "0 0 4px", fontSize: 14.5, fontWeight: 600 }}>Escolha um plano pra publicar</p>
@@ -1285,6 +1289,11 @@ export default function App() {
       {checkingOut && <p style={{ margin: "10px 0 0", fontSize: 12.5, color: C.sub }}>Abrindo o checkout...</p>}
     </div>
   );
+
+  /* ---- DEV: novo quiz selecionável isolado (rota /__quiz) ---- */
+  if (phase === "devquiz") {
+    return <OnboardingQuiz onComplete={(ans) => { console.log("[quiz] respostas:", ans); alert("Quiz concluído! Respostas no console (F12)."); }} />;
+  }
 
   /* ---- LOADING inicial (checando sessão) ---- */
   if (phase === "loading") {
@@ -1552,7 +1561,7 @@ export default function App() {
                 <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 8 }}>
                   <div style={{ display: "flex", alignItems: "center", flex: 1, minWidth: 0, border: `1px solid ${C.line}`, borderRadius: 999, background: "#fff", overflow: "hidden" }}>
                     <span style={{ padding: "11px 0 11px 15px", fontSize: 13.5, color: C.sub, whiteSpace: "nowrap" }}>psipage.com/</span>
-                    <input value={linkSlug} onChange={(e) => setLinkSlug(slugify(e.target.value))}
+                    <input value={linkSlug} onChange={(e) => setLinkSlug(slugLive(e.target.value))}
                       placeholder="seu-nome" onKeyDown={(e) => e.key === "Enter" && confirmLink()}
                       style={{ flex: 1, minWidth: 0, border: "none", padding: "11px 15px 11px 4px", fontSize: 14, fontFamily: "Inter", background: "transparent" }} />
                   </div>
@@ -1705,12 +1714,10 @@ export default function App() {
           <p style={{ color: C.sub, fontSize: 15, margin: "0 0 24px" }}>
             Recebemos suas respostas e seu site já está pronto. Publique agora pra ele ficar no ar.
           </p>
-          {showPlanPicker ? renderPlanPicker() : (
-            <button onClick={publishSite} disabled={publishing}
-              style={{ width: "100%", padding: "14px", borderRadius: 999, border: "none", cursor: publishing ? "default" : "pointer", background: C.dark, color: "#fff", fontWeight: 600, fontSize: 15, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
-              <Check size={16} /> {publishing ? "Publicando..." : "Publicar meu site"}
-            </button>
-          )}
+          <button onClick={publishSite} disabled={publishing}
+            style={{ width: "100%", padding: "14px", borderRadius: 999, border: "none", cursor: publishing ? "default" : "pointer", background: C.dark, color: "#fff", fontWeight: 600, fontSize: 15, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+            <Check size={16} /> {publishing ? "Publicando..." : "Publicar meu site"}
+          </button>
           {authError && <p style={{ color: "#B3453A", fontSize: 13, margin: "12px 0 0" }}>{authError}</p>}
         </div>
       </Shell>
@@ -1834,7 +1841,6 @@ export default function App() {
             {renderAccountMenu()}
           </div>
         </div>
-        {showPlanPicker && renderPlanPicker()}
         {authError && (
           <div className="fade" style={{ marginBottom: 12, fontSize: 13, color: "#B3453A" }}>{authError}</div>
         )}
