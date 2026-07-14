@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node test-trial.js)",
+      "mcp__claude_ai_Supabase__execute_sql",
+      "Bash(rm -f /private/tmp/claude-501/-Users-igorpinheiro-quiz-lp/a3321bb6-33c2-4d1d-9f49-b696fdc61ed4/scratchpad/*.png)",
+      "Bash(which chromium *)",
+      "Read(//Applications/**)",
+      "Bash(\"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome\" --headless --disable-gpu --screenshot=/private/tmp/claude-501/-Users-igorpinheiro-quiz-lp/b7b6ce15-c282-4736-ac15-25acc653d2c2/scratchpad/trial-screen.png --window-size=520,1000 \"http://localhost:5173/__preview-trial\")",
+      "Bash(\"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome\" --headless --disable-gpu --screenshot=/private/tmp/claude-501/-Users-igorpinheiro-quiz-lp/b7b6ce15-c282-4736-ac15-25acc653d2c2/scratchpad/trial-screen-mobile-2.png --window-size=375,950 \"http://localhost:5173/__preview-trial\")",
+      "Bash(\"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome\" --headless --disable-gpu --screenshot=/private/tmp/claude-501/-Users-igorpinheiro-quiz-lp/b7b6ce15-c282-4736-ac15-25acc653d2c2/scratchpad/published-mobile.png --window-size=375,950 \"http://localhost:5173/__preview-success\")",
+      "Bash(xargs -I{} echo {})",
+      "Bash(node .tmp-shot2.mjs 390 844 /private/tmp/claude-501/-Users-igorpinheiro-quiz-lp/a00302c9-ff8e-4669-b9ba-160f1fbd3147/scratchpad/before-mobile)",
+      "Bash(git status *)"
+    ],
+    "additionalDirectories": [
+      "/private/tmp/claude-501/-Users-igorpinheiro-quiz-lp/a3321bb6-33c2-4d1d-9f49-b696fdc61ed4/scratchpad"
+    ]
+  }
+}
