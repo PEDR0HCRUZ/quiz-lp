@@ -462,6 +462,17 @@ const baseField = (path) => (path || "").split(".")[0];
 /* --------- Shell e Brand em escopo de módulo (estáveis) ---------- */
 /* Definir estes DENTRO do App faz o React remontar tudo a cada tecla, */
 /* o que fazia o input perder o foco. Fora do App, a identidade é fixa. */
+// Botão flutuante de suporte no WhatsApp — aparece nas telas do app (quiz,
+// sucesso, login...), NÃO no site público da cliente (que já tem o WhatsApp
+// dela). Abre conversa com o nosso número de suporte.
+const SUPPORT_WA = `https://wa.me/5551995720156?text=${encodeURIComponent("Oi, preciso de ajuda com a minha página no Psi Pages")}`;
+const SupportFab = () => (
+  <a href={SUPPORT_WA} target="_blank" rel="noreferrer" aria-label="Suporte no WhatsApp" title="Precisa de ajuda?"
+    style={{ position: "fixed", right: 18, bottom: 18, zIndex: 60, width: 52, height: 52, borderRadius: "50%", background: "#25D366", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 8px 22px -8px rgba(0,0,0,.45)", textDecoration: "none" }}>
+    <MessageCircle size={25} />
+  </a>
+);
+
 const Shell = ({ children }) => (
   <div className="shell-outer" style={{ background: C.paper, fontFamily: "Inter, system-ui, sans-serif", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
     <style>{`
@@ -502,6 +513,7 @@ const Shell = ({ children }) => (
       }
     `}</style>
     {children}
+    <SupportFab />
   </div>
 );
 
@@ -1436,6 +1448,7 @@ export default function App() {
             </button>
           </div>
         </main>
+        <SupportFab />
       </div>
     );
   }
@@ -1443,6 +1456,7 @@ export default function App() {
   /* ---- QUIZ (novo, selecionáveis) ---- */
   if (phase === "quiz") {
     return (
+      <>
       <OnboardingQuiz
         onComplete={async (ans) => {
           const name = titleCase(ans.nome || lead.name);
@@ -1465,6 +1479,8 @@ export default function App() {
           setPhase("trial");
         }}
       />
+      <SupportFab />
+      </>
     );
   }
 
