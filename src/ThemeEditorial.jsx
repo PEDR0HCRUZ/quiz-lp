@@ -243,6 +243,22 @@ export function SitePreviewEditorial({ d }) {
         </div>
       </div>
 
+      {/* investimento — só aparece se a pessoa optou por mostrar o valor no quiz */}
+      {d.preco?.mostrar && d.preco?.valor != null && (
+        <div style={wrap({ padding: `60px ${CPAD} 0` })}>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 18, alignItems: "center", justifyContent: "space-between", background: T.panel, border: `1px solid ${T.line}`, borderRadius: 4, padding: "28px 30px" }}>
+            <div>
+              <Ornament color={accent} />
+              <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".1em", textTransform: "uppercase", color: accentDeep, margin: "0 0 6px" }}>Investimento</p>
+              <div style={{ display: "flex", alignItems: "baseline", gap: 9 }}>
+                <span className="ed-serif" style={{ fontStyle: "italic", fontWeight: 400, fontSize: 40, color: T.ink, lineHeight: 1 }}>R$ {d.preco.valor}</span>
+                <span style={{ fontSize: 14, color: T.sub }}>por sessão</span>
+              </div>
+            </div>
+            <Btn primary><MessageCircle size={14} /> Agendar</Btn>
+          </div>
+        </div>
+      )}
       {/* cta final */}
       <div style={wrap({ padding: `60px ${CPAD}` })}>
         <div style={{ background: accent, borderRadius: 4, padding: "44px 32px", color: T.paper, textAlign: "center", position: "relative", overflow: "hidden" }}>

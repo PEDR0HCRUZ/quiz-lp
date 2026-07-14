@@ -357,6 +357,21 @@ function SitePreview({ d }) {
           })}
         </div>
       </div>
+      {/* investimento — só aparece se a pessoa optou por mostrar o valor no quiz */}
+      {d.preco?.mostrar && d.preco?.valor != null && (
+        <div style={wrap({ padding: `40px ${CPAD} 0` })}>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 16, alignItems: "center", justifyContent: "space-between", background: accentSoft, borderRadius: 16, padding: "24px 28px" }}>
+            <div>
+              <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".12em", textTransform: "uppercase", color: accent, margin: 0 }}>Investimento</p>
+              <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginTop: 8 }}>
+                <span style={{ fontFamily: "Fraunces, serif", fontSize: 32, fontWeight: 600, color: C.ink }}>R$ {d.preco.valor}</span>
+                <span style={{ fontSize: 13, color: C.sub }}>por sessão</span>
+              </div>
+            </div>
+            <Btn primary><MessageCircle size={14} /> Agendar</Btn>
+          </div>
+        </div>
+      )}
       {/* cta final */}
       <div style={wrap({ padding: `40px ${CPAD}` })}>
         <div style={{ background: accent, borderRadius: 16, padding: 30, color: "#fff", textAlign: "center" }}>
@@ -934,12 +949,17 @@ export default function App() {
   // owner_id ainda. O id fica guardado pra ser "reivindicado" (vinculado à
   // conta) quando ela fizer login logo depois — ver claimTrialSite.
   const createTrialSite = async (siteData, answersData) => {
+    // telefone (WhatsApp) vira a âncora da página no banco — normalizado só em
+    // dígitos, pra recuperar depois sem depender do cache do navegador.
+    const phone = (answersData?.whatsapp || "").replace(/\D/g, "") || null;
+    let includePhone = true; // se a coluna 'phone' ainda não foi migrada, cria sem ela (não trava o MVP)
     for (let n = 1; n <= 20; n++) {
       const slug = randomSlug();
-      const { data, error } = await supabase.from("sites")
-        .insert({ owner_id: null, slug, status: "trial", data: siteData, answers: answersData })
-        .select("id, slug").single();
+      const payload = { owner_id: null, slug, status: "trial", data: siteData, answers: answersData };
+      if (includePhone) payload.phone = phone;
+      const { data, error } = await supabase.from("sites").insert(payload).select("id, slug").single();
       if (!error) return data;
+      if (includePhone && (error.code === "PGRST204" || /phone/i.test(error.message || ""))) { includePhone = false; continue; }
       if (error.code !== "23505") return null; // só tenta de novo se foi conflito de slug
     }
     return null;
