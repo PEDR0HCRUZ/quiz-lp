@@ -1465,11 +1465,6 @@ export default function App() {
 
   /* ---- TRIAL: aha moment — site pronto num link temporário, antes de pedir e-mail ---- */
   if (phase === "trial") {
-    const trialPerks = [
-      { icon: Link2, t: "Link fixo", d: "psipage.com/seu-nome — ou seu domínio próprio" },
-      { icon: RefreshCw, t: "Edição ilimitada", d: "mude textos, fotos e cores quando quiser" },
-      { icon: Wand2, t: "Sem enrolação", d: "nada de designer, nada de mexer em código" },
-    ];
     return (
       <Shell>
         <div className="fade" style={{ textAlign: "center", maxWidth: 460, width: "100%" }}>
@@ -1480,65 +1475,23 @@ export default function App() {
             Prontinho, {firstName(lead.name)}! Seu site já existe.
           </h2>
           <p style={{ color: C.sub, fontSize: 15, lineHeight: 1.55, margin: "0 0 24px" }}>
-            Dá uma olhada em como ficou. Esse link é temporário — publique pra deixar ele no ar de vez.
+            Dá uma olhada em como ficou — o link já está no ar pra você compartilhar.
           </p>
 
-          <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "12px 12px 12px 18px", borderRadius: 12, background: C.panel, border: `1px solid ${C.line}`, marginBottom: 16 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 8px 8px 18px", borderRadius: 12, background: C.panel, border: `1px solid ${C.line}` }}>
             <span style={{ flex: 1, minWidth: 0, textAlign: "left", fontSize: 14.5, fontWeight: 600, color: C.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
               {trialUrl?.replace(/^https?:\/\//, "")}
             </span>
             <button onClick={() => { navigator.clipboard?.writeText(trialUrl); setTrialLinkCopied(true); setTimeout(() => setTrialLinkCopied(false), 1800); }}
-              style={{ padding: "9px 14px", borderRadius: 999, border: "none", background: trialLinkCopied ? C.sage : C.dark, color: C.paper, fontWeight: 500, fontSize: 13, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6, whiteSpace: "nowrap", transition: "background .16s" }}>
-              <Copy size={14} /> {trialLinkCopied ? "Copiado!" : "Copiar link"}
+              aria-label={trialLinkCopied ? "Copiado!" : "Copiar link"} title={trialLinkCopied ? "Copiado!" : "Copiar link"}
+              style={{ flexShrink: 0, width: 34, height: 34, borderRadius: 9, border: "none", background: "transparent", color: trialLinkCopied ? C.sage : C.sub, cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
+              {trialLinkCopied ? <Check size={16} /> : <Copy size={15} />}
             </button>
+            <a href={trialUrl} target="_blank" rel="noreferrer" className="btn-primary-hover"
+              style={{ flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 7, padding: "10px 16px", borderRadius: 999, border: "none", background: C.dark, color: C.paper, fontWeight: 500, fontSize: 13.5, textDecoration: "none", whiteSpace: "nowrap" }}>
+              <ExternalLink size={14} /> Ver site no ar
+            </a>
           </div>
-
-          <a href={trialUrl} target="_blank" rel="noreferrer" className="btn-primary-hover"
-            style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "10px 18px", borderRadius: 999, border: `1px solid ${C.line}`, background: "transparent", color: C.ink, fontWeight: 500, fontSize: 13.5, textDecoration: "none", marginBottom: 28 }}>
-            <ExternalLink size={14} /> Ver site no ar
-          </a>
-
-          <div style={{ padding: 20, borderRadius: 16, background: C.panel, border: `1px solid ${C.line}`, textAlign: "left", marginBottom: 20 }}>
-            <p style={{ margin: "0 0 14px", fontSize: 12, letterSpacing: ".06em", textTransform: "uppercase", fontWeight: 600, color: C.sub }}>
-              O que você leva ao publicar
-            </p>
-            <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 18 }}>
-              {trialPerks.map(({ icon: Icon, t, d }) => (
-                <div key={t} style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
-                  <div style={{ width: 28, height: 28, flexShrink: 0, borderRadius: 9, background: C.sageSoft, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                    <Icon size={14} color={C.sage} />
-                  </div>
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{ fontSize: 13.5, fontWeight: 600, color: C.ink }}>{t}</div>
-                    <div style={{ fontSize: 12.5, color: C.sub, marginTop: 1 }}>{d}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", paddingTop: 9 }}>
-              <div style={{ flex: "1 1 150px", padding: "12px 14px", borderRadius: 12, border: `1px solid ${C.line}`, background: C.paper }}>
-                <div style={{ fontWeight: 600, fontSize: 13.5 }}>Mensal</div>
-                <div style={{ fontSize: 12.5, color: C.sub, marginTop: 1 }}>R$ 49,90/mês</div>
-              </div>
-              <div style={{ flex: "1 1 150px", padding: "12px 14px", borderRadius: 12, border: `2px solid ${C.sage}`, background: C.paper, position: "relative" }}>
-                <span style={{ position: "absolute", top: -9, left: 14, fontSize: 10, fontWeight: 700, letterSpacing: ".02em", color: "#fff", background: C.sage, borderRadius: 999, padding: "2px 8px", whiteSpace: "nowrap" }}>
-                  ECONOMIZE 40%
-                </span>
-                <div style={{ fontWeight: 600, fontSize: 13.5, color: C.sage }}>Anual</div>
-                <div style={{ fontSize: 12.5, color: C.sub, marginTop: 1 }}>R$ 29,90/mês</div>
-                <div style={{ fontSize: 11, color: C.sub, marginTop: 1 }}>R$ 358,80 cobrado no ano</div>
-              </div>
-            </div>
-          </div>
-
-          <button onClick={() => setPhase("quiz-email")} className="btn-primary-hover"
-            style={{ width: "100%", padding: "14px", borderRadius: 999, border: "none", cursor: "pointer", background: C.dark, color: C.paper, fontWeight: 500, fontSize: 15, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
-            Publicar meu site <ArrowRight size={17} />
-          </button>
-          <p style={{ fontSize: 12, color: C.sub, margin: "12px 0 0" }}>
-            Sem cartão até você escolher o plano. O link temporário expira em 24h.
-          </p>
         </div>
       </Shell>
     );
