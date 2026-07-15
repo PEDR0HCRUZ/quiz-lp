@@ -21,7 +21,10 @@
     </script>
   </head>
   <body>
-    <div id="root"></div>
+    <!-- data-clarity-unmask: força o Clarity a NÃO mascarar o conteúdo/inputs do app
+         (queremos ver o que as testadoras digitam). Temporário, junto do Clarity —
+         remover/rever antes de abrir pra público geral (privacidade). -->
+    <div id="root" data-clarity-unmask="true"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
