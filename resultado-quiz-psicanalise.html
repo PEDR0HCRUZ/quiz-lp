@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html><head>
+  <meta charset="utf-8">
+  <meta name="kombai-design-canvas" content="true">
+  <base href="http://localhost:19092/">
+  
+  
+  <script src="https://unpkg.com/@tailwindcss/browser@4"></script>
+  
+  <style>html, body { margin: 0; padding: 0; } #root { display: contents; }</style>
+</head><body>
+  <div id="root"><style data-kid="0">
+    @import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,400;1,9..144,500&family=Lora:ital,wght@0,400;0,500;1,400&family=Archivo:wght@400;500;600&display=swap');
+
+:root {
+  --gold: #C8A24B;
+  --charcoal: #22201C;
+  --bone: #EFE8DC;
+  --acacia: #5C6B4A;
+  --ochre: #B05A2E;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--bone);
+  color: var(--charcoal);
+  font-family: 'Lora', serif;
+  overflow-x: clip;
+}
+
+.font-display { font-family: 'Fraunces', serif; }
+.font-body { font-family: 'Lora', serif; }
+.font-caps { font-family: 'Archivo', sans-serif; }
+
+.kicker {
+  font-family: 'Archivo', sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 0.22em;
+  font-size: 11px;
+}
+
+.kicker-lg {
+  font-family: 'Archivo', sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 0.22em;
+  font-size: 12px;
+}
+
+.body-col {
+  font-family: 'Lora', serif;
+  font-size: 18.5px;
+  line-height: 1.7;
+}
+
+.gold-rule {
+  height: 1px;
+  background: var(--gold);
+}
+
+.dropcap::first-letter {
+  font-family: 'Fraunces', serif;
+  font-weight: 400;
+  font-size: 6.2rem;
+  line-height: 0.78;
+  float: left;
+  color: var(--ochre);
+  padding: 0.35rem 0.7rem 0 0;
+}
+
+.link-underline {
+  background-image: linear-gradient(var(--gold), var(--gold));
+  background-size: 100% 1px;
+  background-repeat: no-repeat;
+  background-position: 0 100%;
+  padding-bottom: 2px;
+}
+
+.reveal { }
+</style>
+<div class="min-h-screen" data-kid="1" data-name="page layout container">
+    
+    <nav class="fixed top-0 left-0 right-0 z-50 mix-blend-difference" data-kid="1-1" data-name="main navigation bar" id="main-nav">
+        <div class="flex items-center justify-between px-6 md:px-12 py-5" data-kid="1-1-1" data-name="navigation flex container">
+            <a class="font-display text-2xl tracking-tight text-[var(--bone)]" data-kid="1-1-1-1" data-name="navigation logo link" href="#" id="nav-logo">
+                Hjjkdsa
+            </a>
+            <div class="hidden md:flex items-center gap-10 kicker text-[var(--bone)]" data-kid="1-1-1-2" data-name="navigation links container" id="nav-links">
+                <a class="hover:opacity-60" data-kid="1-1-1-2-1" data-name="especialidades navigation link" href="#especialidades">
+                    Especialidades
+                </a>
+                <a class="hover:opacity-60" data-kid="1-1-1-2-2" data-name="metodo navigation link" href="#metodo">
+                    Método
+                </a>
+                <a class="hover:opacity-60" data-kid="1-1-1-2-3" data-name="sobre navigation link" href="#sobre">
+                    Sobre
+                </a>
+                <a class="hover:opacity-60" data-kid="1-1-1-2-4" data-name="duvidas navigation link" href="#duvidas">
+                    Dúvidas
+                </a>
+                <a class="px-6 py-2 border border-[var(--bone)] text-[var(--bone)] hover:bg-[var(--bone)] hover:text-[var(--charcoal)] transition-colors text-[10px] tracking-[0.3em]" data-kid="1-1-1-2-5" data-name="agenda call-to-action button" href="#">
+                    AGENDAR
+                </a>
+            </div>
+        </div>
+    </nav>
+    
+    <header class="relative h-screen w-full overflow-hidden bg-[#22201C]" data-kid="1-2" data-name="hero section" id="hero">
+        <div class="absolute inset-0 -z-0" data-kid="1-2-1" data-name="hero image wrapper" id="hero-img-wrap">
+            <img alt="Calm consultation room lighting" class="w-full h-[120%] object-cover opacity-60" data-kid="1-2-1-1" data-name="hero background image" decoding="async" id="hero-img" loading="lazy" src="https://images.unsplash.com/photo-1494438639946-1ebd1d20bf85?auto=format&w=2000&q=80&fit=crop">
+        </div>
+        <div class="absolute inset-0" data-kid="1-2-2" data-name="hero gradient overlay" style="background: linear-gradient(90deg, #22201C 0%, rgba(34,32,28,0.6) 40%, transparent 100%);">
+        </div>
+        <div class="relative z-10 h-full px-6 md:px-16 lg:px-24 flex flex-col justify-center max-w-[1200px]" data-kid="1-2-3" data-name="hero content container" id="hero-text">
+            <p class="kicker-lg mb-7 text-[var(--gold)]" data-kid="1-2-3-1" data-name="hero professional kicker text">
+                Psicanálise Clínica · Hjjkdsa
+            </p>
+            <h1 class="font-display font-light leading-[0.92] tracking-[-0.02em] text-[#EFE8DC] text-[clamp(3.5rem,9vw,8rem)] max-w-4xl" data-kid="1-2-3-2" data-name="hero headline text">
+                Descubra o poder da
+                <span class="italic text-[var(--gold)]" data-kid="1-2-3-2-1" data-name="hero headline highlighted text">
+                    psicanálise
+                </span>
+            </h1>
+            <div class="gold-rule w-32 mt-10 mb-7" data-kid="1-2-3-3" data-name="hero decorative gold rule">
+            </div>
+            <p class="font-body text-[#EFE8DC] opacity-90 max-w-lg text-xl md:text-2xl leading-relaxed italic" data-kid="1-2-3-4" data-name="hero subheadline description text">
+                Aprofunde-se em suas emoções e relacionamentos através da compreensão psicanalítica.
+            </p>
+            <div class="mt-12" data-kid="1-2-3-5" data-name="hero cta container">
+                <a class="inline-flex items-center gap-4 group" data-kid="1-2-3-5-1" data-name="hero cta link" href="#">
+                    <span class="kicker text-[#EFE8DC] group-hover:text-[var(--gold)] transition-colors" data-kid="1-2-3-5-1-1" data-name="hero cta link label">
+                        Falar no WhatsApp
+                    </span>
+                    <div class="w-12 h-px bg-[#EFE8DC] group-hover:w-20 group-hover:bg-[var(--gold)] transition-all" data-kid="1-2-3-5-1-2" data-name="hero cta link line animation">
+                    </div>
+                </a>
+            </div>
+        </div>
+        <div class="absolute bottom-10 right-10 z-10 flex items-center gap-4" data-kid="1-2-4" data-name="hero explore indicator container">
+            <span class="kicker text-[#EFE8DC]" data-kid="1-2-4-1" data-name="hero explore label">
+                Explore
+            </span>
+            <div class="w-16 h-px bg-[var(--gold)]" data-kid="1-2-4-2" data-name="hero explore gold rule">
+            </div>
+        </div>
+    </header>
+    
+    <section class="px-6 md:px-16 lg:px-24 py-24 md:py-40" data-kid="1-3" data-name="about essay section" id="sobre">
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-y-16 lg:gap-x-12" data-kid="1-3-1" data-name="about essay grid container">
+            <div class="lg:col-span-2" data-kid="1-3-1-1" data-name="about chapter label container">
+                <p class="kicker text-[var(--gold)] reveal" data-kid="1-3-1-1-1" data-name="about chapter kicker">
+                    Capítulo Um
+                </p>
+                <p class="font-display italic text-2xl mt-3 text-[var(--acacia)] reveal" data-kid="1-3-1-1-2" data-name="about chapter title">
+                    O Silêncio que Fala
+                </p>
+            </div>
+            <div class="lg:col-span-5 lg:col-start-4" data-kid="1-3-1-2" data-name="about body text container">
+                <p class="body-col dropcap reveal" data-kid="1-3-1-2-1" data-name="about primary paragraph with dropcap">
+                    Antes que a primeira palavra seja dita, o consultório já guarda um convite à escuta profunda. Em um cotidiano acelerado e repleto de respostas prontas, a psicanálise propõe um desvio: o tempo da subjetividade. Não buscamos apenas aliviar sintomas, mas compreender a gramática oculta que rege suas escolhas e afetos.
+                </p>
+                <p class="body-col mt-8 reveal" data-kid="1-3-1-2-2" data-name="about secondary paragraph">
+                    Hjjkdsa atua sob a ética freudiano-lacaniana, onde o paciente é convidado a dizer tudo o que lhe vier à mente. É nesse exercício de associação livre que as repetições se revelam e novos caminhos de desejo podem ser traçados.
+                </p>
+            </div>
+            <div class="lg:col-span-3 lg:col-start-10 self-start" data-kid="1-3-1-3" data-name="about secondary column container">
+                <p class="kicker text-[var(--ochre)] reveal" data-kid="1-3-1-3-1" data-name="about practice kicker">
+                    A Prática
+                </p>
+                <p class="font-body italic mt-4 text-base leading-relaxed text-[var(--acacia)] reveal" data-kid="1-3-1-3-2" data-name="about quote paragraph">
+                    "A psicanálise é, em essência, uma cura pelo amor." — Esta máxima nos lembra que o vínculo terapêutico é o solo onde a transformação se torna possível.
+                </p>
+            </div>
+        </div>
+    </section>
+    
+    <section class="grid grid-cols-1 lg:grid-cols-12 items-center gap-y-12 py-12 md:py-24" data-kid="1-4" data-name="reflection section">
+        <div class="lg:col-span-4 lg:col-start-2 px-6 lg:px-0 order-2 lg:order-1" data-kid="1-4-1" data-name="reflection text container">
+            <p class="kicker text-[var(--gold)] reveal" data-kid="1-4-1-1" data-name="reflection section kicker">
+                Presença e Escuta
+            </p>
+            <p class="body-col mt-6 reveal" data-kid="1-4-1-2" data-name="reflection section body paragraph">
+                O setting analítico é um espaço de suspensão. Onde o julgamento dá lugar à curiosidade analítica. Cada gesto, cada pausa e cada esquecimento tornam-se material de trabalho para a construção de uma vida mais autêntica.
+            </p>
+        </div>
+        <div class="lg:col-span-6 lg:col-start-7 order-1 lg:order-2 reveal-img overflow-hidden" data-kid="1-4-2" data-name="reflection image container">
+            <img alt="Person in reflection" class="w-full h-[70vh] object-cover" data-kid="1-4-2-1" data-name="reflection feature image" decoding="async" loading="lazy" src="https://images.pexels.com/photos/4101143/pexels-photo-4101143.jpeg?auto=compress&cs=tinysrgb&w=1600&q=80">
+            <p class="kicker mt-4 pr-6 text-right text-[var(--charcoal)]/40" data-kid="1-4-2-2" data-name="reflection image credit caption">
+                A subjetividade em foco — Fotografia, Hjjkdsa
+            </p>
+        </div>
+    </section>
+    
+    <section class="relative my-24 md:my-40 py-24 md:py-40 px-6 md:px-16 lg:px-24 bg-[#22201C]" data-kid="1-5" data-name="quote section">
+        <blockquote class="font-display italic font-light leading-[1.05] text-[#EFE8DC] text-[clamp(2.5rem,5.5vw,5rem)] -ml-2 reveal max-w-5xl" data-kid="1-5-1" data-name="quote block">
+            <span class="text-[var(--gold)]" data-kid="1-5-1-1" data-name="opening quotation mark">
+                “
+            </span>
+            Olhe para as profundezas da sua própria alma e aprenda primeiro a se
+            <span class="text-[var(--gold)] italic" data-kid="1-5-1-2" data-name="quote emphasis word">
+                conhecer
+            </span>
+            .
+            <span class="text-[var(--gold)]" data-kid="1-5-1-3" data-name="closing quotation mark">
+                ”
+            </span>
+        </blockquote>
+        <p class="kicker mt-12 text-[var(--gold)] reveal" data-kid="1-5-2" data-name="quote author name">
+            — Sigmund Freud
+        </p>
+    </section>
+    
+    <section class="grid grid-cols-1 lg:grid-cols-12 items-center gap-y-12 mb-24 md:mb-40" data-kid="1-6" data-name="method section" id="metodo">
+        <div class="lg:col-span-7 lg:col-start-1 reveal-img overflow-hidden" data-kid="1-6-1" data-name="method image container">
+            <img alt="Hands connecting" class="w-full h-[75vh] object-cover grayscale-[20%]" data-kid="1-6-1-1" data-name="method feature image" decoding="async" loading="lazy" src="https://images.pexels.com/photos/7176319/pexels-photo-7176319.jpeg?auto=compress&cs=tinysrgb&w=1600&q=80">
+            <p class="kicker mt-4 pl-6 text-[var(--charcoal)]/40" data-kid="1-6-1-2" data-name="method image credit caption">
+                O laço analítico — Fotografia, Hjjkdsa
+            </p>
+        </div>
+        <div class="lg:col-span-4 lg:col-start-9 px-6 lg:px-0" data-kid="1-6-2" data-name="method text container">
+            <p class="kicker text-[var(--gold)] reveal" data-kid="1-6-2-1" data-name="method section kicker">
+                O Método
+            </p>
+            <h2 class="font-display text-4xl md:text-5xl mt-4 leading-tight reveal text-[color:var(--charcoal)]" data-kid="1-6-2-2" data-name="method section headline">
+                Associação Livre e
+                <span class="italic" data-kid="1-6-2-2-1" data-name="method headline emphasis">
+                    Transferência
+                </span>
+            </h2>
+            <p class="body-col mt-6 reveal" data-kid="1-6-2-3" data-name="method section body paragraph">
+                Não oferecemos conselhos ou fórmulas de felicidade. Oferecemos um método: a fala livre. É através dela que você poderá reencontrar a sua própria voz, muitas vezes abafada por expectativas externas e traumas do passado.
+            </p>
+        </div>
+    </section>
+    
+    <section class="px-6 md:px-16 lg:px-24 py-24 md:py-40 bg-white/30 border-y border-[var(--gold)]/10" data-kid="1-7" data-name="areas section" id="especialidades">
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-12 mb-20" data-kid="1-7-1" data-name="areas header container">
+            <div class="lg:col-span-8" data-kid="1-7-1-1" data-name="areas title container">
+                <h2 class="font-display text-4xl md:text-7xl leading-[0.9] text-[color:var(--charcoal)] reveal" data-kid="1-7-1-1-1" data-name="areas section headline">
+                    Áreas de
+                    <span class="italic text-[var(--gold)]" data-kid="1-7-1-1-1-1" data-name="areas headline emphasis">
+                        Aprofundamento
+                    </span>
+                </h2>
+            </div>
+            <div class="lg:col-span-4 flex items-end" data-kid="1-7-1-2" data-name="areas kicker container">
+                <p class="kicker text-[var(--ochre)] mb-2 reveal" data-kid="1-7-1-2-1" data-name="areas section kicker">
+                    Frentes Clínicas
+                </p>
+            </div>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-x-16 gap-y-24" data-kid="1-7-2" data-name="areas grid container">
+            <div class="reveal" data-kid="1-7-2-1" data-name="area card one">
+                <div class="flex items-baseline gap-6 mb-6" data-kid="1-7-2-1-1" data-name="area header container">
+                    <span class="font-display text-5xl text-[var(--gold)]/30" data-kid="1-7-2-1-1-1" data-name="area number label">
+                        01
+                    </span>
+                    <h4 class="font-display text-3xl" data-kid="1-7-2-1-1-2" data-name="area card title">
+                        Relacionamentos
+                    </h4>
+                </div>
+                <p class="body-col text-lg opacity-80" data-kid="1-7-2-1-2" data-name="area card body text">
+                    Investigação de padrões repetitivos em laços amorosos e familiares. Compreensão das dinâmicas de dependência e conflito.
+                </p>
+            </div>
+            <div class="reveal md:mt-24" data-kid="1-7-2-2" data-name="area card two">
+                <div class="flex items-baseline gap-6 mb-6" data-kid="1-7-2-2-1" data-name="area header container">
+                    <span class="font-display text-5xl text-[var(--gold)]/30" data-kid="1-7-2-2-1-1" data-name="area number label">
+                        02
+                    </span>
+                    <h4 class="font-display text-3xl" data-kid="1-7-2-2-1-2" data-name="area card title">
+                        Angústia e Ansiedade
+                    </h4>
+                </div>
+                <p class="body-col text-lg opacity-80" data-kid="1-7-2-2-2" data-name="area card body text">
+                    Trabalho sobre o mal-estar contemporâneo e o sentimento de vazio que muitas vezes acompanha a vida produtiva.
+                </p>
+            </div>
+            <div class="reveal" data-kid="1-7-2-3" data-name="area card three">
+                <div class="flex items-baseline gap-6 mb-6" data-kid="1-7-2-3-1" data-name="area header container">
+                    <span class="font-display text-5xl text-[var(--gold)]/30" data-kid="1-7-2-3-1-1" data-name="area number label">
+                        03
+                    </span>
+                    <h4 class="font-display text-3xl" data-kid="1-7-2-3-1-2" data-name="area card title">
+                        Carreira e Identidade
+                    </h4>
+                </div>
+                <p class="body-col text-lg opacity-80" data-kid="1-7-2-3-2" data-name="area card body text">
+                    Dificuldades de posicionamento profissional e a busca por um propósito que faça sentido para além do capital.
+                </p>
+            </div>
+            <div class="reveal md:mt-24" data-kid="1-7-2-4" data-name="area card four">
+                <div class="flex items-baseline gap-6 mb-6" data-kid="1-7-2-4-1" data-name="area header container">
+                    <span class="font-display text-5xl text-[var(--gold)]/30" data-kid="1-7-2-4-1-1" data-name="area number label">
+                        04
+                    </span>
+                    <h4 class="font-display text-3xl" data-kid="1-7-2-4-1-2" data-name="area card title">
+                        Processos de Luto
+                    </h4>
+                </div>
+                <p class="body-col text-lg opacity-80" data-kid="1-7-2-4-2" data-name="area card body text">
+                    Elaboração de perdas — sejam elas de pessoas queridas, de fases da vida ou de versões de si mesmo.
+                </p>
+            </div>
+        </div>
+    </section>
+    
+    <section class="px-6 md:px-16 lg:px-24 py-24 md:py-40 relative" data-kid="1-8" data-name="consultation options section" id="duvidas">
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-y-24" data-kid="1-8-1" data-name="options grid container">
+            <div class="lg:col-span-7" data-kid="1-8-1-1" data-name="presential options column">
+                <div class="reveal-img overflow-hidden mb-8 bg-[#D3D3D3]" data-kid="1-8-1-1-1" data-name="presential image wrapper">
+                    <img alt="Consultation room" class="w-full h-[60vh] object-cover" data-kid="1-8-1-1-1-1" data-name="presential consultation image" decoding="async" loading="lazy" src="https://images.unsplash.com/photo-1493663284031-b7e3aefcae8e?auto=format&w=1600&q=80&fit=crop">
+                </div>
+                <h3 class="font-display text-4xl reveal text-[color:var(--charcoal)]" data-kid="1-8-1-1-2" data-name="presential option title">
+                    Presencial Porto Alegre
+                </h3>
+                <p class="body-col mt-4 max-w-xl reveal" data-kid="1-8-1-1-3" data-name="presential option description">
+                    Sessões realizadas em consultório privativo no bairro Auxiliadora. Um ambiente neutro e seguro projetado para o rigor da escuta analítica.
+                </p>
+                <div class="mt-8 border-l border-[var(--gold)] pl-8 py-1 reveal" data-kid="1-8-1-1-4" data-name="presential investment container">
+                    <p class="kicker text-[var(--gold)]" data-kid="1-8-1-1-4-1" data-name="presential investment label">
+                        Investimento
+                    </p>
+                    <p class="font-display text-3xl mt-1 text-[color:var(--charcoal)]" data-kid="1-8-1-1-4-2" data-name="presential investment price text">
+                        R$ 250
+                        <span class="text-base font-body italic opacity-60" data-kid="1-8-1-1-4-2-1" data-name="presential per session label">
+                            por sessão
+                        </span>
+                    </p>
+                </div>
+            </div>
+            <div class="lg:col-span-4 lg:col-start-9 lg:mt-48" data-kid="1-8-1-2" data-name="online options column">
+                <div class="reveal-img overflow-hidden mb-8 bg-[#D3D3D3]" data-kid="1-8-1-2-1" data-name="online image wrapper">
+                    <img alt="Therapeutic environment" class="w-full h-[50vh] object-cover grayscale" data-kid="1-8-1-2-1-1" data-name="online consultation image" decoding="async" loading="lazy" src="https://images.pexels.com/photos/7176026/pexels-photo-7176026.jpeg?auto=compress&cs=tinysrgb&w=1200">
+                </div>
+                <h3 class="font-display text-4xl reveal text-[color:var(--charcoal)]" data-kid="1-8-1-2-2" data-name="online option title">
+                    Atendimento Online
+                </h3>
+                <p class="body-col mt-4 reveal" data-kid="1-8-1-2-3" data-name="online option description">
+                    A profundidade da psicanálise acessível de qualquer lugar do mundo. Sessões por vídeo com absoluto sigilo e infraestrutura digital segura.
+                </p>
+                <div class="mt-8 border-l border-[var(--gold)] pl-8 py-1 reveal" data-kid="1-8-1-2-4" data-name="online investment container">
+                    <p class="kicker text-[var(--gold)]" data-kid="1-8-1-2-4-1" data-name="online investment label">
+                        Investimento
+                    </p>
+                    <p class="font-display text-3xl mt-1 text-[color:var(--charcoal)]" data-kid="1-8-1-2-4-2" data-name="online investment price text">
+                        R$ 250
+                        <span class="text-base font-body italic opacity-60" data-kid="1-8-1-2-4-2-1" data-name="online per session label">
+                            por sessão
+                        </span>
+                    </p>
+                </div>
+                <a class="link-underline kicker inline-block mt-8 text-[color:var(--charcoal)] reveal" data-kid="1-8-1-2-5" data-name="online cta link" href="#">
+                    Conversar no WhatsApp →
+                </a>
+            </div>
+        </div>
+    </section>
+    
+    <section class="py-32 md:py-52 bg-[#22201C] text-[#EFE8DC] overflow-hidden" data-kid="1-9" data-name="final cta section">
+        <div class="px-6 md:px-16 lg:px-24" data-kid="1-9-1" data-name="final cta content container">
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-12" data-kid="1-9-1-1" data-name="final cta grid">
+                <div class="lg:col-span-8" data-kid="1-9-1-1-1" data-name="final cta text column">
+                    <p class="kicker text-[var(--gold)] mb-8 reveal" data-kid="1-9-1-1-1-1" data-name="final cta kicker">
+                        O próximo passo
+                    </p>
+                    <h2 class="font-display text-5xl md:text-8xl leading-[0.9] reveal text-[color:#EFE8DC]" data-kid="1-9-1-1-1-2" data-name="final cta headline">
+                        A cura começa pela
+                        <span class="italic text-[var(--gold)]" data-kid="1-9-1-1-1-2-1" data-name="final cta headline emphasis">
+                            palavra
+                        </span>
+                    </h2>
+                </div>
+                <div class="lg:col-span-4 flex flex-col justify-end" data-kid="1-9-1-1-2" data-name="final cta button column">
+                    <p class="body-col text-xl italic mb-10 reveal opacity-80" data-kid="1-9-1-1-2-1" data-name="final cta subheadline description">
+                        Agende uma conversa inicial para compreender como o processo psicanalítico pode atuar em sua vida.
+                    </p>
+                    <a class="inline-block py-6 px-10 border border-[var(--gold)] text-[var(--gold)] hover:bg-[var(--gold)] hover:text-[#22201C] transition-colors font-display text-2xl text-center reveal" data-kid="1-9-1-1-2-2" data-name="final cta button" href="#">
+                        Agendar via WhatsApp
+                    </a>
+                </div>
+            </div>
+        </div>
+    </section>
+    
+    <footer class="bg-[#22201C] text-[#EFE8DC]" data-kid="1-10" data-name="footer section">
+        <div class="px-6 md:px-16 lg:px-24 py-24 md:py-32" data-kid="1-10-1" data-name="footer container">
+            <div class="gold-rule w-full mb-16 opacity-30" data-kid="1-10-1-1" data-name="footer top gold rule">
+            </div>
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-y-16" data-kid="1-10-1-2" data-name="footer content grid">
+                <div class="lg:col-span-6" data-kid="1-10-1-2-1" data-name="footer profile info column">
+                    <p class="kicker mb-6 text-[var(--gold)]" data-kid="1-10-1-2-1-1" data-name="footer profile category kicker">
+                        Psicoterapia
+                    </p>
+                    <h2 class="font-display font-light leading-[0.95] text-[clamp(2.5rem,5vw,4rem)] text-[color:#EFE8DC]" data-kid="1-10-1-2-1-2" data-name="footer profile title">
+                        Hjjkdsa
+                        <span class="italic text-[var(--gold)]" data-kid="1-10-1-2-1-2-1" data-name="footer profile emphasis">
+                            Psicanálise
+                        </span>
+                    </h2>
+                    <p class="body-col mt-8 max-w-md opacity-70" data-kid="1-10-1-2-1-3" data-name="footer profile bio text">
+                        Psicólogo Clínico — CRP 07/324423. Atendimento híbrido especializado em subjetividade e sofrimento psíquico.
+                    </p>
+                    <a class="link-underline font-display italic text-2xl md:text-3xl inline-block mt-8 hover:text-[var(--gold)] transition-colors text-[color:#EFE8DC]" data-kid="1-10-1-2-1-4" data-name="footer contact email link" href="mailto:contato@hjjkdsa.com.br">
+                        contato@hjjkdsa.com.br
+                    </a>
+                </div>
+                <div class="lg:col-span-3 lg:col-start-8" data-kid="1-10-1-2-2" data-name="footer location column">
+                    <p class="kicker mb-6 text-[var(--gold)]" data-kid="1-10-1-2-2-1" data-name="footer location kicker">
+                        Porto Alegre
+                    </p>
+                    <p class="body-col text-base opacity-70 leading-relaxed" data-kid="1-10-1-2-2-2" data-name="footer address text">
+                        Av. Carlos Gomes, 1492
+                        <br data-kid="1-10-1-2-2-2-1" data-name="address line break">
+                        Auxiliadora, CEP 90480-002
+                    </p>
+                    <p class="kicker mt-10 mb-6 text-[var(--gold)]" data-kid="1-10-1-2-2-3" data-name="footer availability kicker">
+                        Disponibilidade
+                    </p>
+                    <p class="body-col text-base opacity-70 leading-relaxed" data-kid="1-10-1-2-2-4" data-name="footer availability text">
+                        Segunda a Sexta
+                        <br data-kid="1-10-1-2-2-4-1" data-name="availability line break">
+                        Presencial e Online
+                    </p>
+                </div>
+                <div class="lg:col-span-2 lg:col-start-11" data-kid="1-10-1-2-3" data-name="footer navigation column">
+                    <p class="kicker mb-6 text-[var(--gold)]" data-kid="1-10-1-2-3-1" data-name="footer nav kicker">
+                        Acesso
+                    </p>
+                    <ul class="body-col text-base space-y-3 opacity-70" data-kid="1-10-1-2-3-2" data-name="footer navigation list">
+                        <li data-kid="1-10-1-2-3-2-1" data-name="especialidades footer item">
+                            <a class="hover:text-[var(--gold)] transition-colors" data-kid="1-10-1-2-3-2-1-1" data-name="especialidades footer link" href="#especialidades">
+                                Especialidades
+                            </a>
+                        </li>
+                        <li data-kid="1-10-1-2-3-2-2" data-name="metodo footer item">
+                            <a class="hover:text-[var(--gold)] transition-colors" data-kid="1-10-1-2-3-2-2-1" data-name="metodo footer link" href="#metodo">
+                                Método
+                            </a>
+                        </li>
+                        <li data-kid="1-10-1-2-3-2-3" data-name="sobre footer item">
+                            <a class="hover:text-[var(--gold)] transition-colors" data-kid="1-10-1-2-3-2-3-1" data-name="sobre footer link" href="#sobre">
+                                Sobre
+                            </a>
+                        </li>
+                        <li data-kid="1-10-1-2-3-2-4" data-name="duvidas footer item">
+                            <a class="hover:text-[var(--gold)] transition-colors" data-kid="1-10-1-2-3-2-4-1" data-name="duvidas footer link" href="#duvidas">
+                                Dúvidas
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            <div class="gold-rule w-full mt-24 mb-10 opacity-30" data-kid="1-10-1-3" data-name="footer bottom gold rule">
+            </div>
+            <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-6" data-kid="1-10-1-4" data-name="footer copyright container">
+                <div class="flex flex-col gap-1" data-kid="1-10-1-4-1" data-name="footer branding container">
+                    <p class="font-display text-2xl tracking-tight text-[color:#EFE8DC]" data-kid="1-10-1-4-1-1" data-name="footer logo text">
+                        Hjjkdsa
+                    </p>
+                    <p class="kicker text-[8px] opacity-40" data-kid="1-10-1-4-1-2" data-name="footer credentials sub-text">
+                        Psicólogo · CRP 07/324423 · híbrido
+                    </p>
+                </div>
+                <div class="flex flex-col md:items-end gap-2" data-kid="1-10-1-4-2" data-name="footer copyright text container">
+                    <p class="kicker text-[10px] opacity-50" data-kid="1-10-1-4-2-1" data-name="footer copyright text">
+                        © 2026 Todos os direitos reservados
+                    </p>
+                </div>
+            </div>
+        </div>
+    </footer>
+</div>
+<link data-kid="2" data-name="external stylesheet" href="https://unpkg.com/lenis@1/dist/lenis.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/gsap@3/dist/gsap.min.js" data-kid="3"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3/dist/ScrollTrigger.min.js" data-kid="4"></script>
+<script type="module" data-kid="5">
+    import Lenis from "https://esm.sh/lenis@1";
+const lenis = new Lenis({ lerp: 0.06, smoothWheel: true });
+function raf(t) { lenis.raf(t); requestAnimationFrame(raf); }
+requestAnimationFrame(raf);
+
+gsap.registerPlugin(ScrollTrigger);
+lenis.on('scroll', ScrollTrigger.update);
+
+// Hero Parallax
+gsap.to("#hero-img", {
+  yPercent: 16,
+  ease: "none",
+  scrollTrigger: {
+    trigger: "#hero",
+    start: "top top",
+    end: "bottom top",
+    scrub: true
+  }
+});
+
+gsap.to("#hero-text", {
+  yPercent: -22,
+  opacity: 0.15,
+  ease: "none",
+  scrollTrigger: {
+    trigger: "#hero",
+    start: "top top",
+    end: "bottom top",
+    scrub: true
+  }
+});
+
+// Reveal animations
+gsap.utils.toArray(".reveal").forEach((el) => {
+  gsap.from(el, {
+    y: 40,
+    opacity: 0,
+    duration: 1.2,
+    ease: "power3.out",
+    scrollTrigger: {
+      trigger: el,
+      start: "top 90%",
+      toggleActions: "play none none none"
+    }
+  });
+});
+
+// Image reveals with subtle scale
+gsap.utils.toArray(".reveal-img").forEach((el) => {
+  const img = el.querySelector("img");
+  gsap.from(img, {
+    scale: 1.15,
+    duration: 1.8,
+    ease: "power2.out",
+    scrollTrigger: {
+      trigger: el,
+      start: "top 85%",
+      toggleActions: "play none none none"
+    }
+  });
+});
+</script>
+>>>>>>> REPLACE
+</div>
+</body></html>

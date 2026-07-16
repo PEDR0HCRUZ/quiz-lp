@@ -9,6 +9,8 @@ import {
 import { supabase } from "./lib/supabase.js";
 import { slugify, slugLive, withSuffix, randomSlug } from "./lib/slug.js";
 import { SitePreviewEditorial } from "./ThemeEditorial.jsx";
+import { SitePreviewOlosirkon } from "./ThemeOlosirkon.jsx";
+import { SitePreviewTerra } from "./ThemeTerra.jsx";
 import { COLOR_SCHEMES, DEFAULT_COLOR_SCHEME, darken } from "./colorSchemes.js";
 import { ListEditor, Label as EdLabel, inputStyle as edInput } from "./editorControls.jsx";
 import OnboardingQuiz from "./quiz/OnboardingQuiz.jsx";
@@ -212,6 +214,9 @@ function buildSiteFromAnswers(answers, lead) {
   return {
     ...DEFAULTS,
     specialties, badge, methodTitle,
+    // "grid" é o layout original — fallback seguro enquanto a IA não decide
+    // uma variante (ver aiCopy.specialtiesVariant em fetchAiCopy).
+    specialtiesVariant: "grid",
     name: lead.name || "", email: lead.email || "", title,
     modalidade: answers.modalidade || "", whatsapp: answers.whatsapp || "", instagram: answers.instagram || "",
     photo: answers.foto?.url || "",
@@ -221,13 +226,107 @@ function buildSiteFromAnswers(answers, lead) {
     publico: answers.publico || [],
     preco: answers.preco || null,
     waMessage: `Olá! Vi seu site e tenho interesse em agendar uma consulta.`,
-    theme: answers.themeStyle?.theme || "classic",
+    theme: answers.themeStyle?.theme || "olosirkon",
     colorScheme: answers.themeStyle?.colorScheme || DEFAULT_COLOR_SCHEME,
   };
 }
 
+// pede pra IA (endpoint /api/generate-copy) escrever headline/subheadline/
+// methodText/bio únicos pra essa combinação de respostas. Timeout curto e
+// qualquer falha (rede, JSON malformado, API fora) retorna null — quem chama
+// já sabe manter o site determinístico (buildSiteFromAnswers) nesse caso.
+const AI_COPY_TIMEOUT_MS = 6500;
+async function fetchAiCopy(answers, name) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), AI_COPY_TIMEOUT_MS);
+  try {
+    const res = await fetch("/api/generate-copy", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name,
+        especialidade: answers.especialidade,
+        abordagem: answers.abordagem,
+        modalidade: answers.modalidade,
+        tom: answers.tom,
+        temas: answers.temas,
+        sobre: answers.sobre,
+      }),
+      signal: controller.signal,
+    });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 /* =========================== SITE PREVIEW ========================== */
-function SitePreview({ d }) {
+// três leituras visuais da mesma seção "especialidades" — a IA escolhe qual
+// combina com o volume/formato dos temas dessa pessoa (ver specialtiesVariant
+// em fetchAiCopy/generate-copy). Todas usam os mesmos tokens (C, accent) do
+// tema Clássico, só muda a composição.
+function SpecialtiesGrid({ d, accent, wrap }) {
+  return (
+    <div className="spec-grid" style={{ gap: 14 }}>
+      {d.specialties.map((s, i) => (
+        <div key={i} data-edit={`specialties.${i}`} style={{ background: "#fff", border: `1px solid ${C.line}`, borderRadius: 12, padding: "16px" }}>
+          <span style={{ fontFamily: "Fraunces, serif", fontSize: 13, color: accent }}>{String(i + 1).padStart(2, "0")}</span>
+          <h3 style={{ fontSize: 15, fontWeight: 600, margin: "6px 0" }}>{s.t}</h3>
+          <p style={{ fontSize: 12.5, color: C.sub, margin: 0, lineHeight: 1.5 }}>{s.d}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+function SpecialtiesLista({ d, accent }) {
+  return (
+    <div>
+      {d.specialties.map((s, i) => (
+        <div key={i} data-edit={`specialties.${i}`} style={{ display: "flex", gap: 16, alignItems: "flex-start", padding: "16px 0", borderTop: i === 0 ? "none" : `1px solid ${C.line}` }}>
+          <span style={{ fontFamily: "Fraunces, serif", fontSize: 20, color: accent, flexShrink: 0, width: 32 }}>{String(i + 1).padStart(2, "0")}</span>
+          <div>
+            <h3 style={{ fontSize: 15, fontWeight: 600, margin: "0 0 4px" }}>{s.t}</h3>
+            <p style={{ fontSize: 12.5, color: C.sub, margin: 0, lineHeight: 1.5, maxWidth: 480 }}>{s.d}</p>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+function SpecialtiesDestaque({ d, accent, accentSoft }) {
+  const [first, ...rest] = d.specialties;
+  if (!first) return null;
+  return (
+    <div className="spec-destaque-grid" style={{ display: "grid", gridTemplateColumns: "1.1fr .9fr", gap: 14, alignItems: "stretch" }}>
+      <div data-edit="specialties.0" style={{ background: accentSoft, borderRadius: 14, padding: "22px", display: "flex", flexDirection: "column", justifyContent: "center" }}>
+        <span style={{ fontFamily: "Fraunces, serif", fontSize: 13, color: accent }}>01</span>
+        <h3 style={{ fontFamily: "Fraunces, serif", fontSize: 20, fontWeight: 600, margin: "8px 0 8px" }}>{first.t}</h3>
+        <p style={{ fontSize: 13, color: C.ink, opacity: .75, margin: 0, lineHeight: 1.55 }}>{first.d}</p>
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        {rest.map((s, i) => (
+          <div key={i} data-edit={`specialties.${i + 1}`} style={{ background: "#fff", border: `1px solid ${C.line}`, borderRadius: 10, padding: "12px 14px", flex: 1 }}>
+            <h3 style={{ fontSize: 13.5, fontWeight: 600, margin: "0 0 3px" }}>{s.t}</h3>
+            <p style={{ fontSize: 11.5, color: C.sub, margin: 0, lineHeight: 1.45 }}>{s.d}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+function Specialties({ d, accent, accentSoft, wrap }) {
+  const variant = d.specialtiesVariant;
+  // "destaque" só funciona bem com 3+ itens (1 grande + resto) — com poucos
+  // itens cai pra grid, que se sustenta com qualquer quantidade.
+  if (variant === "lista") return <SpecialtiesLista d={d} accent={accent} />;
+  if (variant === "destaque" && d.specialties.length >= 3) return <SpecialtiesDestaque d={d} accent={accent} accentSoft={accentSoft} />;
+  return <SpecialtiesGrid d={d} accent={accent} wrap={wrap} />;
+}
+
+export function SitePreview({ d }) {
   const [openFaq, setOpenFaq] = useState(0);
   const { accent, accentSoft } = COLOR_SCHEMES[d.colorScheme] || COLOR_SCHEMES[DEFAULT_COLOR_SCHEME];
   // versão escura do accent pros blocos de contraste (metodologia, CTA) — antes
@@ -281,15 +380,7 @@ function SitePreview({ d }) {
         <div style={wrap({ padding: `40px ${CPAD}` })}>
           <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".12em", textTransform: "uppercase", color: accent, margin: 0 }}>Foco em resultados</p>
           <h2 style={{ fontFamily: "Fraunces, serif", fontSize: 26, fontWeight: 600, margin: "8px 0 22px" }}>Especialidades clínicas</h2>
-          <div className="spec-grid" style={{ gap: 14 }}>
-            {d.specialties.map((s, i) => (
-              <div key={i} data-edit={`specialties.${i}`} style={{ background: "#fff", border: `1px solid ${C.line}`, borderRadius: 12, padding: "16px" }}>
-                <span style={{ fontFamily: "Fraunces, serif", fontSize: 13, color: accent }}>{String(i + 1).padStart(2, "0")}</span>
-                <h3 style={{ fontSize: 15, fontWeight: 600, margin: "6px 0" }}>{s.t}</h3>
-                <p style={{ fontSize: 12.5, color: C.sub, margin: 0, lineHeight: 1.5 }}>{s.d}</p>
-              </div>
-            ))}
-          </div>
+          <Specialties d={d} accent={accent} accentSoft={accentSoft} wrap={wrap} />
         </div>
       </div>
       {/* diferenciais */}
@@ -414,10 +505,47 @@ function SitePreview({ d }) {
 }
 
 /* escolhe o tema pra renderizar sem alterar SitePreview (tema clássico) */
-const THEMES = { classic: "Clássico", editorial: "Autoral" };
+const THEMES = { classic: "Clássico", editorial: "Autoral", olosirkon: "Premium", terra: "Artesanal" };
 function ThemedSite({ d }) {
   if (d?.theme === "editorial") return <SitePreviewEditorial d={d} />;
+  if (d?.theme === "olosirkon") return <SitePreviewOlosirkon d={d} />;
+  if (d?.theme === "terra") return <SitePreviewTerra d={d} />;
   return <SitePreview d={d} />;
+}
+
+/* ---- DEV: galeria navegável dos 4 temas com dados de exemplo (rota /__temas) ---- */
+const SHOWCASE_PROFILES = [
+  { theme: "classic", label: "Clássico", colorScheme: "Sálvia", name: "Marina Costa", title: "Psicóloga · CRP 07/123456" },
+  { theme: "editorial", label: "Autoral", colorScheme: "Terracota", name: "Rafael Nunes", title: "Psicólogo · CRP 06/654321" },
+  { theme: "olosirkon", label: "Premium", colorScheme: "Azul acinzentado", name: "Camila Duarte", title: "Psicóloga · CRP 05/112233" },
+  { theme: "terra", label: "Artesanal", colorScheme: "Areia", name: "Bruno Alencar", title: "Psicólogo · CRP 08/445566" },
+];
+function ThemeShowcase() {
+  const [active, setActive] = useState(0);
+  const profile = SHOWCASE_PROFILES[active];
+  const d = {
+    ...DEFAULTS,
+    theme: profile.theme, colorScheme: profile.colorScheme,
+    name: profile.name, title: profile.title,
+    modalidade: "online", whatsapp: "51999998888", instagram: "@consultorio.exemplo",
+    email: "contato@exemplo.com", endereco: "Rua das Flores, 123, Bairro Jardim, Porto Alegre - RS",
+    photo: "", logo: "",
+  };
+  return (
+    <div style={{ minHeight: "100vh", background: C.paper }}>
+      <nav style={{ position: "sticky", top: 0, zIndex: 50, background: "#fff", borderBottom: `1px solid ${C.line}`, padding: "14px 20px", display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+        <span style={{ fontFamily: "Fraunces, serif", fontWeight: 600, fontSize: 15, color: C.ink, marginRight: 8 }}>Temas</span>
+        {SHOWCASE_PROFILES.map((p, i) => (
+          <button key={p.theme} onClick={() => setActive(i)} style={{
+            padding: "8px 16px", borderRadius: 999, fontSize: 13.5, fontWeight: 500, cursor: "pointer", transition: "all .15s ease",
+            border: i === active ? `1px solid ${C.ink}` : `1px solid ${C.line}`,
+            background: i === active ? C.ink : "#fff", color: i === active ? "#fff" : C.ink,
+          }}>{p.label}</button>
+        ))}
+      </nav>
+      <div key={active} className="fade"><ThemedSite d={d} /></div>
+    </div>
+  );
 }
 
 // registro dos campos editáveis pelo editor visual: cada data-edit no preview
@@ -544,9 +672,10 @@ const PREVIEW_FRAME_CSS = `
   .sobre-grid { display:grid; grid-template-columns: 1fr 1fr; }
   .diff-grid { display:grid; grid-template-columns: 1fr 1fr; }
   .spec-grid { display:grid; grid-template-columns: 1fr 1fr; }
+  .spec-destaque-grid { grid-template-columns: 1.1fr .9fr; }
   @media (max-width: 640px) {
     :root { --cpad: 16px; }
-    .hero-grid, .sobre-grid, .diff-grid, .spec-grid { grid-template-columns: 1fr !important; }
+    .hero-grid, .sobre-grid, .diff-grid, .spec-grid, .spec-destaque-grid { grid-template-columns: 1fr !important; }
     .hero-grid > div:last-child, .sobre-grid > div:last-child { width: 100%; max-width: 420px; margin: 20px auto 0; }
     .diff-grid > div:first-child { width: 100%; max-width: 420px; margin: 0 auto 20px; }
     .site-nav { display: none !important; }
@@ -803,6 +932,7 @@ export default function App() {
   useEffect(() => {
     const path = window.location.pathname.replace(/^\/+|\/+$/g, "");
     if (path === "__quiz") { setPhase("devquiz"); return; } // rota de dev: testar o novo quiz isolado
+    if (path === "__temas") { setPhase("devthemes"); return; } // rota de dev: galeria navegável dos temas
     if (path === "__preview-success") {
       setLead({ name: "Ana Beatriz", email: "ana@exemplo.com" });
       setPublishedUrl(`${window.location.origin}/ana-beatriz`);
@@ -1288,8 +1418,14 @@ export default function App() {
     setTimeout(() => composerRef.current?.focus(), 0);
   };
 
-  const runGeneration = (all) => {
+  const runGeneration = async (all) => {
     const siteObj = buildSiteFromAnswers(all, lead);
+    // tenta escrever headline/subheadline/methodText/bio únicos com IA antes de
+    // mostrar o site (bloqueante, com timeout curto) — se falhar ou estourar,
+    // siteObj já é um site completo e válido com os textos determinísticos.
+    const aiCopy = await fetchAiCopy(all, siteObj.name);
+    // não sobrescreve uma bio que a pessoa mesma escreveu no quiz (campo "sobre")
+    if (aiCopy) Object.assign(siteObj, all.sobre ? { ...aiCopy, bio: siteObj.bio } : aiCopy);
     setSite(siteObj);
     // MVP mobile: sem editor com sidebar — cai numa tela simples de publicar.
     // Quem já tem site salvo (hydrate()) continua indo pro editor normalmente.
@@ -1311,9 +1447,10 @@ export default function App() {
         .sobre-grid { display:grid; grid-template-columns: 1fr 1fr; }
         .diff-grid { display:grid; grid-template-columns: 1fr 1fr; }
         .spec-grid { display:grid; grid-template-columns: 1fr 1fr; }
+        .spec-destaque-grid { grid-template-columns: 1.1fr .9fr; }
         @media (max-width: 640px) {
           :root { --cpad: 16px; }
-          .hero-grid, .sobre-grid, .diff-grid, .spec-grid { grid-template-columns: 1fr !important; }
+          .hero-grid, .sobre-grid, .diff-grid, .spec-grid, .spec-destaque-grid { grid-template-columns: 1fr !important; }
           .hero-grid > div:last-child, .sobre-grid > div:last-child { width: 100%; max-width: 420px; margin: 20px auto 0; }
           .diff-grid > div:first-child { width: 100%; max-width: 420px; margin: 0 auto 20px; }
           .site-nav { display: none !important; }
@@ -1398,6 +1535,11 @@ export default function App() {
     return <OnboardingQuiz onComplete={(ans) => { console.log("[quiz] respostas:", ans); alert("Quiz concluído! Respostas no console (F12)."); }} />;
   }
 
+  /* ---- DEV: galeria navegável dos 4 temas (rota /__temas) ---- */
+  if (phase === "devthemes") {
+    return <ThemeShowcase />;
+  }
+
   /* ---- LOADING inicial (checando sessão) ---- */
   if (phase === "loading") {
     return <Shell><div className="fade" style={{ color: C.sub, fontSize: 14 }}>Carregando...</div></Shell>;
@@ -1464,6 +1606,12 @@ export default function App() {
           setLead((l) => ({ ...l, name }));
           setPhase("generating");
           const siteObj = buildSiteFromAnswers(ans, { name, email: "" });
+          // gera o texto único já aqui, no trial (antes do e-mail) — é o primeiro
+          // site que a pessoa vê, e claimTrialSite reaproveita esses mesmos dados
+          // depois do OTP, então essa é a ÚNICA chamada à IA por pessoa.
+          const aiCopy = await fetchAiCopy(ans, siteObj.name);
+          // não sobrescreve uma bio que a pessoa mesma escreveu no quiz (campo "sobre")
+          if (aiCopy) Object.assign(siteObj, ans.sobre ? { ...aiCopy, bio: siteObj.bio } : aiCopy);
           setSite(siteObj);
           const created = await createTrialSite(siteObj, ans);
           if (!created) {
@@ -1679,8 +1827,9 @@ export default function App() {
         .hero-grid { display:grid; grid-template-columns: 1.1fr .9fr; }
         .sobre-grid { display:grid; grid-template-columns: 1fr 1fr; }
         .spec-grid { display:grid; grid-template-columns: 1fr 1fr; }
+        .spec-destaque-grid { grid-template-columns: 1.1fr .9fr; }
         @media (max-width: 640px) {
-          .hero-grid, .sobre-grid, .spec-grid { grid-template-columns: 1fr !important; }
+          .hero-grid, .sobre-grid, .spec-grid, .spec-destaque-grid { grid-template-columns: 1fr !important; }
           .hero-grid > div:last-child, .sobre-grid > div:last-child { max-width: 220px; margin: 20px auto 0; }
           .site-nav { display: none !important; }
         }

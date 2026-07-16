@@ -43,11 +43,14 @@ const QUIZ_CSS = `
 .psq-main{ padding:${SP.xl4}px ${SP.xl2}px 72px; }
 .psq-cards{ grid-template-columns:1fr 1fr; }
 .psq-dropzone{ padding:${SP.xl2 + 2}px ${SP.xl2 - 2}px; }
+.psq-theme-grid button{ transition:border-color .16s,background .16s; }
+.psq-theme-grid button:hover{ border-color:${T.inkFaint}; }
 @media (max-width:640px){
   .psq-header{ padding:${SP.lg}px ${SP.lg}px; }
   .psq-main{ padding:${SP.xl2}px ${SP.lg}px 48px; }
   .psq-cards{ grid-template-columns:1fr; }
   .psq-dropzone{ padding:${SP.xl}px ${SP.lg}px; }
+  .psq-theme-grid{ grid-template-columns:1fr !important; }
 }
 
 .psq-input{ transition:border-color .16s,box-shadow .16s,background .16s; }
@@ -124,6 +127,8 @@ const TONS = [
 const TEMAS = [
   { v: "classic", l: "Clássico", d: "Serifada elegante, atemporal" },
   { v: "editorial", l: "Autoral", d: "Editorial e expressivo" },
+  { v: "olosirkon", l: "Premium", d: "Imersivo e sofisticado" },
+  { v: "terra", l: "Artesanal", d: "Caloroso, feito à mão" },
 ];
 // 24 conselhos regionais de psicologia (01ª a 24ª). Antes só ia até 12.
 const CRP_UFS = Array.from({ length: 24 }, (_, i) => String(i + 1).padStart(2, "0"));
@@ -357,20 +362,29 @@ function StepBody({ step, a, set, onEnter, focusTick }) {
   }
 
   if (step.type === "themepalette") {
-    const v = a.themeStyle || { theme: "classic", colorScheme: DEFAULT_COLOR_SCHEME };
+    const v = a.themeStyle || { theme: "olosirkon", colorScheme: DEFAULT_COLOR_SCHEME };
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: SP.xl2 }}>
         <div>
           <span style={legendStyle}>Estilo</span>
-          <div style={{ display: "flex", flexDirection: "column", gap: SP.sm + 2 }}>
+          <div className="psq-theme-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: SP.md + 2 }}>
             {TEMAS.map((t) => {
               const on = v.theme === t.v;
               return (
-                <button key={t.v} type="button" onClick={() => set("themeStyle", { ...v, theme: t.v })} className="psq-choice" style={choiceStyle(on)}>
-                  <span style={markStyle(on, false)}>{on && <span style={markDot(false)} />}</span>
-                  <span style={{ flex: 1, textAlign: "left" }}>
-                    <b style={{ display: "block", fontWeight: 500 }}>{t.l}</b>
-                    <small style={{ display: "block", color: T.inkSoft, fontSize: 13 }}>{t.d}</small>
+                <button key={t.v} type="button" onClick={() => set("themeStyle", { ...v, theme: t.v })} className="psq-choice" style={themeCardStyle(on)}>
+                  {/* screenshot fixo (paleta Sálvia) da primeira dobra de cada tema —
+                      dá uma referência visual real antes de escolher, já que a paleta
+                      escolhida abaixo só se aplica depois de gerar o site de verdade */}
+                  <span style={{ display: "block", borderRadius: 8, overflow: "hidden", border: `1px solid ${T.line}`, aspectRatio: "16/10" }}>
+                    <img src={`/theme-previews/${t.v}.jpg`} alt={`Prévia do estilo ${t.l}`}
+                      style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "top", display: "block" }} />
+                  </span>
+                  <span style={{ display: "flex", alignItems: "center", gap: SP.sm + 1, marginTop: SP.md }}>
+                    <span style={markStyle(on, false)}>{on && <span style={markDot(false)} />}</span>
+                    <span style={{ textAlign: "left" }}>
+                      <b style={{ display: "block", fontWeight: 500 }}>{t.l}</b>
+                      <small style={{ display: "block", color: T.inkSoft, fontSize: 13 }}>{t.d}</small>
+                    </span>
                   </span>
                 </button>
               );
@@ -530,6 +544,15 @@ const choiceStyle = (on) => ({
   display: "flex", alignItems: "center", gap: SP.md + 1, width: "100%",
   background: on ? T.sageSoft : T.paper, border: `1px solid ${on ? T.sage : T.line}`,
   borderRadius: 12, padding: `${SP.lg}px ${SP.xl - 2}px`, font: "inherit", color: "inherit", cursor: "pointer",
+  fontFamily: BODY,
+});
+// variante de choiceStyle pra card de tema: imagem grande em cima, radio +
+// texto como legenda embaixo (em vez de linha horizontal) — a imagem precisa
+// ser o elemento dominante pra dar uma referência visual real de cada tema.
+const themeCardStyle = (on) => ({
+  display: "block", width: "100%", textAlign: "left",
+  background: on ? T.sageSoft : T.paper, border: `1px solid ${on ? T.sage : T.line}`,
+  borderRadius: 12, padding: SP.md + 2, font: "inherit", color: "inherit", cursor: "pointer",
   fontFamily: BODY,
 });
 const markStyle = (on) => ({ width: 20, height: 20, flex: "none", border: `1.5px solid ${on ? T.sage : T.line}`, borderRadius: "50%", display: "grid", placeItems: "center", background: T.paper });
