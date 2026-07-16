@@ -4,12 +4,16 @@ import {
   ArrowRight, Send, MessageCircle, Instagram, Mail, Check,
   Sparkles, Loader2, Pencil, X, Plus, Image as ImageIcon, MapPin,
   LogOut, ChevronDown, Inbox, Monitor, Tablet, Smartphone, Copy, ExternalLink,
+  Link2, RefreshCw, Wand2,
 } from "lucide-react";
 import { supabase } from "./lib/supabase.js";
-import { slugify, withSuffix } from "./lib/slug.js";
+import { slugify, slugLive, withSuffix, randomSlug } from "./lib/slug.js";
 import { SitePreviewEditorial } from "./ThemeEditorial.jsx";
+import { SitePreviewOlosirkon } from "./ThemeOlosirkon.jsx";
+import { SitePreviewTerra } from "./ThemeTerra.jsx";
 import { COLOR_SCHEMES, DEFAULT_COLOR_SCHEME, darken } from "./colorSchemes.js";
 import { ListEditor, Label as EdLabel, inputStyle as edInput } from "./editorControls.jsx";
+import OnboardingQuiz from "./quiz/OnboardingQuiz.jsx";
 
 /* ------------------------------------------------------------------ */
 /*  PsiPage — v2: onboarding conversacional + login por magic link   */
@@ -18,10 +22,15 @@ import { ListEditor, Label as EdLabel, inputStyle as edInput } from "./editorCon
 /*  Funil de canal único: WhatsApp.                                      */
 /* ------------------------------------------------------------------ */
 
+// tokens do design system Avence Psi (ver avence-psi-design-system.html) —
+// única fonte de verdade de cor pras telas do app (landing, auth, editor).
+// "dark"/"bubbleUser" apontam pro grafite (--ink), que é o preenchimento do
+// botão primário sólido no DS — sálvia nunca é usado em botão, só em foco/seleção.
 const C = {
-  paper: "#F3F1EA", panel: "#FBFAF7", ink: "#17160F", sub: "#6F6A5E",
-  line: "#E5E1D6", sage: "#46614D", sageSoft: "#EAEFE9",
-  acid: "#B5EF00", dark: "#14140F", bubbleUser: "#14140F",
+  paper: "#F7F3EC", panel: "#FFFFFF", ink: "#2A2622", sub: "#6B635A",
+  line: "#DDD4C6", sage: "#5E7361", sageSoft: "#DCE4DA",
+  clay: "#B7784F", claySoft: "#F3E4DA", danger: "#A8443A", dangerSoft: "#F6E3E1",
+  dark: "#2A2622", bubbleUser: "#2A2622",
 };
 
 // largura máxima do conteúdo das seções do site publicado + respiro lateral em telas pequenas
@@ -136,6 +145,12 @@ const FLOW = [
 /* --------------------------- utilities ---------------------------- */
 let _mid = 0;
 const uid = () => ++_mid;
+// id do site anônimo (trial) pendente de ser vinculado à conta — em
+// localStorage (não useRef) porque o magic link do e-mail costuma abrir em
+// nova aba/janela, onde um useRef já teria perdido o valor.
+const TRIAL_SITE_KEY = "psipage_trial_site_id";
+const getPendingTrialSiteId = () => { try { return localStorage.getItem(TRIAL_SITE_KEY); } catch { return null; } };
+const setPendingTrialSiteId = (id) => { try { id ? localStorage.setItem(TRIAL_SITE_KEY, id) : localStorage.removeItem(TRIAL_SITE_KEY); } catch { /* ignora */ } };
 const CARDS_STEP = FLOW.find((f) => f.type === "cards");
 const waLink = (num, msg) =>
   `https://wa.me/${(num || "").replace(/\D/g, "")}?text=${encodeURIComponent(msg || "")}`;
@@ -167,60 +182,151 @@ const isMobileViewport = () => window.matchMedia("(max-width: 900px)").matches;
 
 /* -------------------------- copy determinística --------------------- */
 /* Sem IA por enquanto: monta a copy a partir do template + respostas.   */
-function buildCopy(input) {
-  return {
-    ...DEFAULTS,
-    badge: input.modalidade === "Presencial" ? "Atendimento presencial" : "Atendimento 100% Online",
-    methodTitle: `Sobre a ${input.abordagem}`,
-    bio: input.sobre || DEFAULTS.bio,
-  };
+// título exibido junto do nome (ex: "Dra. · CRP 07/123456") — combina o
+// tratamento escolhido no quiz com o registro profissional, se houver.
+const TITULO_LABELS = { psicologa: "Psicóloga", psicologo: "Psicólogo", dra: "Dra.", nenhum: "" };
+function buildTitle(answers) {
+  const label = TITULO_LABELS[answers.titulo] ?? "";
+  const crp = answers.crp?.num ? `CRP ${answers.crp.uf}/${answers.crp.num}` : "";
+  return [label, crp].filter(Boolean).join(" · ");
 }
+const BADGE_BY_MODALIDADE_NOVO = {
+  online: "Atendimento 100% Online",
+  presencial: "Atendimento presencial",
+  hibrido: "Atendimento online e presencial",
+};
 
 // monta um objeto "site" válido a partir de QUALQUER estado parcial de
-// answers — usado tanto pro preview ao vivo durante o chat (a cada resposta)
+// answers (formato do OnboardingQuiz) — usado tanto pro preview ao vivo
 // quanto pra geração final (runGeneration). Campos ainda não respondidos
 // caem nos DEFAULTS, então o preview nunca fica quebrado/vazio.
 function buildSiteFromAnswers(answers, lead) {
-  const title = answers.crp
-    ? `${answers.specialty || ""} • ${answers.crp}`
-    : (answers.specialty ? `${answers.specialty} • Em formação` : "");
-  const input = {
-    name: lead.name, title, modalidade: answers.modalidade,
-    abordagem: answers.abordagem, temas: answers.temas, tom: answers.tom, sobre: answers.sobre,
-  };
-  const copy = buildCopy(input);
+  const title = buildTitle(answers);
 
-  const selectedTemas = (answers.temas || "").split(",").map((s) => s.trim()).filter(Boolean);
-  const aiSpecs = Array.isArray(copy.specialties) ? copy.specialties : [];
-  const specialties = selectedTemas.length
-    ? selectedTemas.map((t, i) => {
-        const byIndex = aiSpecs[i] && aiSpecs[i].d;
-        const byName = aiSpecs.find((s) => s.t && s.t.toLowerCase() === t.toLowerCase())?.d;
-        return { t, d: byIndex || byName || GENERIC_SPEC_DESC };
-      })
-    : (aiSpecs.length ? aiSpecs : DEFAULTS.specialties);
+  const selectedEspecialidades = answers.especialidade || [];
+  const specialties = selectedEspecialidades.length
+    ? selectedEspecialidades.map((t) => ({ t, d: GENERIC_SPEC_DESC }))
+    : DEFAULTS.specialties;
 
-  const badge = BADGE_BY_MODALIDADE[answers.modalidade] || copy.badge || DEFAULTS.badge;
-  const methodTitle = KNOWN_APPROACHES.includes(answers.abordagem)
-    ? `O que é a ${answers.abordagem}?`
-    : (copy.methodTitle || "Sobre a abordagem");
+  const badge = BADGE_BY_MODALIDADE_NOVO[answers.modalidade] || DEFAULTS.badge;
+  const methodTitle = answers.abordagem ? `O que é a ${answers.abordagem}?` : DEFAULTS.methodTitle;
 
   return {
-    ...copy,
+    ...DEFAULTS,
     specialties, badge, methodTitle,
+    // "grid" é o layout original — fallback seguro enquanto a IA não decide
+    // uma variante (ver aiCopy.specialtiesVariant em fetchAiCopy).
+    specialtiesVariant: "grid",
     name: lead.name || "", email: lead.email || "", title,
     modalidade: answers.modalidade || "", whatsapp: answers.whatsapp || "", instagram: answers.instagram || "",
-    photo: answers.photo || "",
-    logo: answers.logo || "",
+    photo: answers.foto?.url || "",
+    logo: answers.logo?.url || "",
     endereco: answers.endereco || "",
+    bio: answers.bio || DEFAULTS.bio,
+    publico: answers.publico || [],
+    preco: answers.preco || null,
     waMessage: `Olá! Vi seu site e tenho interesse em agendar uma consulta.`,
-    theme: answers.themeStyle?.theme || "classic",
+    theme: answers.themeStyle?.theme || "olosirkon",
     colorScheme: answers.themeStyle?.colorScheme || DEFAULT_COLOR_SCHEME,
   };
 }
 
+// pede pra IA (endpoint /api/generate-copy) escrever headline/subheadline/
+// methodText/bio únicos pra essa combinação de respostas. Timeout curto e
+// qualquer falha (rede, JSON malformado, API fora) retorna null — quem chama
+// já sabe manter o site determinístico (buildSiteFromAnswers) nesse caso.
+const AI_COPY_TIMEOUT_MS = 6500;
+async function fetchAiCopy(answers, name) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), AI_COPY_TIMEOUT_MS);
+  try {
+    const res = await fetch("/api/generate-copy", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name,
+        especialidade: answers.especialidade,
+        abordagem: answers.abordagem,
+        modalidade: answers.modalidade,
+        tom: answers.tom,
+        temas: answers.temas,
+        sobre: answers.sobre,
+      }),
+      signal: controller.signal,
+    });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 /* =========================== SITE PREVIEW ========================== */
-function SitePreview({ d }) {
+// três leituras visuais da mesma seção "especialidades" — a IA escolhe qual
+// combina com o volume/formato dos temas dessa pessoa (ver specialtiesVariant
+// em fetchAiCopy/generate-copy). Todas usam os mesmos tokens (C, accent) do
+// tema Clássico, só muda a composição.
+function SpecialtiesGrid({ d, accent, wrap }) {
+  return (
+    <div className="spec-grid" style={{ gap: 14 }}>
+      {d.specialties.map((s, i) => (
+        <div key={i} data-edit={`specialties.${i}`} style={{ background: "#fff", border: `1px solid ${C.line}`, borderRadius: 12, padding: "16px" }}>
+          <span style={{ fontFamily: "Fraunces, serif", fontSize: 13, color: accent }}>{String(i + 1).padStart(2, "0")}</span>
+          <h3 style={{ fontSize: 15, fontWeight: 600, margin: "6px 0" }}>{s.t}</h3>
+          <p style={{ fontSize: 12.5, color: C.sub, margin: 0, lineHeight: 1.5 }}>{s.d}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+function SpecialtiesLista({ d, accent }) {
+  return (
+    <div>
+      {d.specialties.map((s, i) => (
+        <div key={i} data-edit={`specialties.${i}`} style={{ display: "flex", gap: 16, alignItems: "flex-start", padding: "16px 0", borderTop: i === 0 ? "none" : `1px solid ${C.line}` }}>
+          <span style={{ fontFamily: "Fraunces, serif", fontSize: 20, color: accent, flexShrink: 0, width: 32 }}>{String(i + 1).padStart(2, "0")}</span>
+          <div>
+            <h3 style={{ fontSize: 15, fontWeight: 600, margin: "0 0 4px" }}>{s.t}</h3>
+            <p style={{ fontSize: 12.5, color: C.sub, margin: 0, lineHeight: 1.5, maxWidth: 480 }}>{s.d}</p>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+function SpecialtiesDestaque({ d, accent, accentSoft }) {
+  const [first, ...rest] = d.specialties;
+  if (!first) return null;
+  return (
+    <div className="spec-destaque-grid" style={{ display: "grid", gridTemplateColumns: "1.1fr .9fr", gap: 14, alignItems: "stretch" }}>
+      <div data-edit="specialties.0" style={{ background: accentSoft, borderRadius: 14, padding: "22px", display: "flex", flexDirection: "column", justifyContent: "center" }}>
+        <span style={{ fontFamily: "Fraunces, serif", fontSize: 13, color: accent }}>01</span>
+        <h3 style={{ fontFamily: "Fraunces, serif", fontSize: 20, fontWeight: 600, margin: "8px 0 8px" }}>{first.t}</h3>
+        <p style={{ fontSize: 13, color: C.ink, opacity: .75, margin: 0, lineHeight: 1.55 }}>{first.d}</p>
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        {rest.map((s, i) => (
+          <div key={i} data-edit={`specialties.${i + 1}`} style={{ background: "#fff", border: `1px solid ${C.line}`, borderRadius: 10, padding: "12px 14px", flex: 1 }}>
+            <h3 style={{ fontSize: 13.5, fontWeight: 600, margin: "0 0 3px" }}>{s.t}</h3>
+            <p style={{ fontSize: 11.5, color: C.sub, margin: 0, lineHeight: 1.45 }}>{s.d}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+function Specialties({ d, accent, accentSoft, wrap }) {
+  const variant = d.specialtiesVariant;
+  // "destaque" só funciona bem com 3+ itens (1 grande + resto) — com poucos
+  // itens cai pra grid, que se sustenta com qualquer quantidade.
+  if (variant === "lista") return <SpecialtiesLista d={d} accent={accent} />;
+  if (variant === "destaque" && d.specialties.length >= 3) return <SpecialtiesDestaque d={d} accent={accent} accentSoft={accentSoft} />;
+  return <SpecialtiesGrid d={d} accent={accent} wrap={wrap} />;
+}
+
+export function SitePreview({ d }) {
   const [openFaq, setOpenFaq] = useState(0);
   const { accent, accentSoft } = COLOR_SCHEMES[d.colorScheme] || COLOR_SCHEMES[DEFAULT_COLOR_SCHEME];
   // versão escura do accent pros blocos de contraste (metodologia, CTA) — antes
@@ -274,15 +380,7 @@ function SitePreview({ d }) {
         <div style={wrap({ padding: `40px ${CPAD}` })}>
           <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".12em", textTransform: "uppercase", color: accent, margin: 0 }}>Foco em resultados</p>
           <h2 style={{ fontFamily: "Fraunces, serif", fontSize: 26, fontWeight: 600, margin: "8px 0 22px" }}>Especialidades clínicas</h2>
-          <div className="spec-grid" style={{ gap: 14 }}>
-            {d.specialties.map((s, i) => (
-              <div key={i} data-edit={`specialties.${i}`} style={{ background: "#fff", border: `1px solid ${C.line}`, borderRadius: 12, padding: "16px" }}>
-                <span style={{ fontFamily: "Fraunces, serif", fontSize: 13, color: accent }}>{String(i + 1).padStart(2, "0")}</span>
-                <h3 style={{ fontSize: 15, fontWeight: 600, margin: "6px 0" }}>{s.t}</h3>
-                <p style={{ fontSize: 12.5, color: C.sub, margin: 0, lineHeight: 1.5 }}>{s.d}</p>
-              </div>
-            ))}
-          </div>
+          <Specialties d={d} accent={accent} accentSoft={accentSoft} wrap={wrap} />
         </div>
       </div>
       {/* diferenciais */}
@@ -350,6 +448,21 @@ function SitePreview({ d }) {
           })}
         </div>
       </div>
+      {/* investimento — só aparece se a pessoa optou por mostrar o valor no quiz */}
+      {d.preco?.mostrar && d.preco?.valor != null && (
+        <div style={wrap({ padding: `40px ${CPAD} 0` })}>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 16, alignItems: "center", justifyContent: "space-between", background: accentSoft, borderRadius: 16, padding: "24px 28px" }}>
+            <div>
+              <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".12em", textTransform: "uppercase", color: accent, margin: 0 }}>Investimento</p>
+              <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginTop: 8 }}>
+                <span style={{ fontFamily: "Fraunces, serif", fontSize: 32, fontWeight: 600, color: C.ink }}>R$ {d.preco.valor}</span>
+                <span style={{ fontSize: 13, color: C.sub }}>por sessão</span>
+              </div>
+            </div>
+            <Btn primary><MessageCircle size={14} /> Agendar</Btn>
+          </div>
+        </div>
+      )}
       {/* cta final */}
       <div style={wrap({ padding: `40px ${CPAD}` })}>
         <div style={{ background: accent, borderRadius: 16, padding: 30, color: "#fff", textAlign: "center" }}>
@@ -392,10 +505,47 @@ function SitePreview({ d }) {
 }
 
 /* escolhe o tema pra renderizar sem alterar SitePreview (tema clássico) */
-const THEMES = { classic: "Clássico", editorial: "Autoral" };
+const THEMES = { classic: "Clássico", editorial: "Autoral", olosirkon: "Premium", terra: "Artesanal" };
 function ThemedSite({ d }) {
   if (d?.theme === "editorial") return <SitePreviewEditorial d={d} />;
+  if (d?.theme === "olosirkon") return <SitePreviewOlosirkon d={d} />;
+  if (d?.theme === "terra") return <SitePreviewTerra d={d} />;
   return <SitePreview d={d} />;
+}
+
+/* ---- DEV: galeria navegável dos 4 temas com dados de exemplo (rota /__temas) ---- */
+const SHOWCASE_PROFILES = [
+  { theme: "classic", label: "Clássico", colorScheme: "Sálvia", name: "Marina Costa", title: "Psicóloga · CRP 07/123456" },
+  { theme: "editorial", label: "Autoral", colorScheme: "Terracota", name: "Rafael Nunes", title: "Psicólogo · CRP 06/654321" },
+  { theme: "olosirkon", label: "Premium", colorScheme: "Azul acinzentado", name: "Camila Duarte", title: "Psicóloga · CRP 05/112233" },
+  { theme: "terra", label: "Artesanal", colorScheme: "Areia", name: "Bruno Alencar", title: "Psicólogo · CRP 08/445566" },
+];
+function ThemeShowcase() {
+  const [active, setActive] = useState(0);
+  const profile = SHOWCASE_PROFILES[active];
+  const d = {
+    ...DEFAULTS,
+    theme: profile.theme, colorScheme: profile.colorScheme,
+    name: profile.name, title: profile.title,
+    modalidade: "online", whatsapp: "51999998888", instagram: "@consultorio.exemplo",
+    email: "contato@exemplo.com", endereco: "Rua das Flores, 123, Bairro Jardim, Porto Alegre - RS",
+    photo: "", logo: "",
+  };
+  return (
+    <div style={{ minHeight: "100vh", background: C.paper }}>
+      <nav style={{ position: "sticky", top: 0, zIndex: 50, background: "#fff", borderBottom: `1px solid ${C.line}`, padding: "14px 20px", display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+        <span style={{ fontFamily: "Fraunces, serif", fontWeight: 600, fontSize: 15, color: C.ink, marginRight: 8 }}>Temas</span>
+        {SHOWCASE_PROFILES.map((p, i) => (
+          <button key={p.theme} onClick={() => setActive(i)} style={{
+            padding: "8px 16px", borderRadius: 999, fontSize: 13.5, fontWeight: 500, cursor: "pointer", transition: "all .15s ease",
+            border: i === active ? `1px solid ${C.ink}` : `1px solid ${C.line}`,
+            background: i === active ? C.ink : "#fff", color: i === active ? "#fff" : C.ink,
+          }}>{p.label}</button>
+        ))}
+      </nav>
+      <div key={active} className="fade"><ThemedSite d={d} /></div>
+    </div>
+  );
 }
 
 // registro dos campos editáveis pelo editor visual: cada data-edit no preview
@@ -440,12 +590,26 @@ const baseField = (path) => (path || "").split(".")[0];
 /* --------- Shell e Brand em escopo de módulo (estáveis) ---------- */
 /* Definir estes DENTRO do App faz o React remontar tudo a cada tecla, */
 /* o que fazia o input perder o foco. Fora do App, a identidade é fixa. */
+// Botão flutuante de suporte no WhatsApp — aparece nas telas do app (quiz,
+// sucesso, login...), NÃO no site público da cliente (que já tem o WhatsApp
+// dela). Abre conversa com o nosso número de suporte.
+const SUPPORT_WA = `https://wa.me/5551995720156?text=${encodeURIComponent("Oi, preciso de ajuda com a minha página no Psi Pages")}`;
+const SupportFab = () => (
+  <a href={SUPPORT_WA} target="_blank" rel="noreferrer" aria-label="Suporte no WhatsApp" title="Precisa de ajuda?"
+    style={{ position: "fixed", right: 18, bottom: 18, zIndex: 60, width: 52, height: 52, borderRadius: "50%", background: "#25D366", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 8px 22px -8px rgba(0,0,0,.45)", textDecoration: "none" }}>
+    <MessageCircle size={25} />
+  </a>
+);
+
 const Shell = ({ children }) => (
   <div className="shell-outer" style={{ background: C.paper, fontFamily: "Inter, system-ui, sans-serif", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
     <style>{`
-      @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600&family=Inter:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&family=Work+Sans:wght@400;500;600;700&display=swap');
-      *{box-sizing:border-box;} body{margin:0;overscroll-behavior-y:contain;-webkit-text-size-adjust:100%;} details summary::-webkit-details-marker{display:none;}
-      input:focus,textarea:focus{outline:none;border-color:${C.sage} !important;}
+      @import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..700;1,9..144,300..600&family=Inter:wght@400;500;600&display=swap');
+      *{box-sizing:border-box;} body{margin:0;overscroll-behavior-y:contain;-webkit-text-size-adjust:100%;-webkit-font-smoothing:antialiased;} details summary::-webkit-details-marker{display:none;}
+      @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;}}
+      input,textarea{transition:border-color .16s,box-shadow .16s,background .16s;}
+      input:hover,textarea:hover{border-color:${C.sub};}
+      input:focus,textarea:focus{outline:none;border-color:${C.sage} !important;box-shadow:0 0 0 3px ${C.sageSoft};}
       .fade{animation:fade .5s ease both;} @keyframes fade{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:none;}}
       .bub{animation:bub .35s ease both;} @keyframes bub{from{opacity:0;transform:translateY(6px) scale(.98);}to{opacity:1;transform:none;}}
       .prev::-webkit-scrollbar{width:7px;} .prev::-webkit-scrollbar-thumb{background:#D8D3C6;border-radius:9px;}
@@ -453,6 +617,9 @@ const Shell = ({ children }) => (
       .dot:nth-child(2){animation-delay:.2s;}.dot:nth-child(3){animation-delay:.4s;}
       @keyframes blink{0%,60%,100%{opacity:.25;}30%{opacity:1;}}
       @keyframes spin{to{transform:rotate(360deg);}} .spin{animation:spin 1s linear infinite;}
+      .btn-primary-hover{transition:transform .12s;} .btn-primary-hover:hover:not(:disabled){transform:translateY(-1px);}
+      .btn-primary-hover:focus-visible{outline:2px solid ${C.sage};outline-offset:3px;}
+      .link-hover{transition:color .16s;} .link-hover:hover{color:${C.ink} !important;}
 
       /* --- mobile: viewport real (evita corte por barra do navegador) --- */
       .shell-outer{ min-height: 100vh; min-height: 100dvh; }
@@ -474,15 +641,14 @@ const Shell = ({ children }) => (
       }
     `}</style>
     {children}
+    <SupportFab />
   </div>
 );
 
 const Brand = () => (
-  <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-    <div style={{ width: 26, height: 26, borderRadius: 7, background: C.dark, display: "flex", alignItems: "center", justifyContent: "center" }}>
-      <span style={{ width: 9, height: 9, borderRadius: 2, background: C.acid }} />
-    </div>
-    <span style={{ fontWeight: 700, fontSize: 18, letterSpacing: "-.01em" }}>Psi<span style={{ fontStyle: "italic", color: C.sage }}>Page</span></span>
+  <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
+    <span style={{ width: 10, height: 10, borderRadius: "50%", background: C.sage, flexShrink: 0 }} />
+    <span style={{ fontFamily: "Fraunces, serif", fontWeight: 600, fontSize: 18 }}>Psi<span style={{ fontStyle: "italic", color: C.sage }}>Page</span></span>
   </div>
 );
 
@@ -506,9 +672,10 @@ const PREVIEW_FRAME_CSS = `
   .sobre-grid { display:grid; grid-template-columns: 1fr 1fr; }
   .diff-grid { display:grid; grid-template-columns: 1fr 1fr; }
   .spec-grid { display:grid; grid-template-columns: 1fr 1fr; }
+  .spec-destaque-grid { grid-template-columns: 1.1fr .9fr; }
   @media (max-width: 640px) {
     :root { --cpad: 16px; }
-    .hero-grid, .sobre-grid, .diff-grid, .spec-grid { grid-template-columns: 1fr !important; }
+    .hero-grid, .sobre-grid, .diff-grid, .spec-grid, .spec-destaque-grid { grid-template-columns: 1fr !important; }
     .hero-grid > div:last-child, .sobre-grid > div:last-child { width: 100%; max-width: 420px; margin: 20px auto 0; }
     .diff-grid > div:first-child { width: 100%; max-width: 420px; margin: 0 auto 20px; }
     .site-nav { display: none !important; }
@@ -608,7 +775,9 @@ function PreviewFrame({ width, radius, children, editMode, selectedField, onSele
 
 /* ============================== APP ============================== */
 export default function App() {
-  const [phase, setPhase] = useState("loading"); // loading | public | welcome | chat | site | mobile-success | published
+  const [phase, setPhase] = useState("loading"); // loading | public | landing | quiz | generating | trial | quiz-email | site | mobile-success | published
+  const [trialUrl, setTrialUrl] = useState(null);
+  const [trialLinkCopied, setTrialLinkCopied] = useState(false);
   const [lead, setLead] = useState({ name: "", email: "" });
   const [authError, setAuthError] = useState("");
   const [sendingLink, setSendingLink] = useState(false);
@@ -631,6 +800,7 @@ export default function App() {
   const [msgs, setMsgs] = useState([]);
   const [stepIdx, setStepIdx] = useState(0);
   const [answers, setAnswers] = useState({});
+  const answersRef = useRef(answers); // espelho pra `hydrate` (roteamento, monta 1x) ler o valor mais recente
   const [typing, setTyping] = useState(false);
   const [draft, setDraft] = useState("");
   const [justFilled, setJustFilled] = useState(null); // { field, ts } da última resposta — dispara scroll+pulso no preview
@@ -668,6 +838,7 @@ export default function App() {
   // site derivado ao vivo das respostas dadas até agora — usado pelo preview
   // ao lado do chat, que vai se montando campo a campo conforme a conversa avança.
   const previewSite = useMemo(() => buildSiteFromAnswers(answers, lead), [answers, lead]);
+  answersRef.current = answers;
 
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -704,7 +875,9 @@ export default function App() {
   // a volta, lá embaixo).
   const sendMagicLink = async () => {
     if (!/\S+@\S+\.\S+/.test(lead.email)) return;
-    const name = titleCase(lead.name.trim() || lead.email.split("@")[0].replace(/[._-]+/g, " "));
+    // o nome já veio do quiz (1º passo, answers.nome) — só cai pro e-mail
+    // se por algum motivo ela chegou aqui sem ter passado pelo quiz.
+    const name = titleCase(lead.name.trim() || answers.nome || lead.email.split("@")[0].replace(/[._-]+/g, " "));
     setLead((l) => ({ ...l, name }));
     setSendingLink(true);
     setAuthError("");
@@ -751,21 +924,30 @@ export default function App() {
     setLinkSent(false);
     setMsgs([]); setStepIdx(0); setAnswers({});
     setSite(null); setSiteSlug(null); setSiteStatus("draft"); setPublishedUrl(null);
-    setPhase("welcome");
+    setPendingTrialSiteId(null);
+    setPhase("landing");
   };
 
   // roteamento simples (path != "/" = site público) + sessão existente (magic link)
   useEffect(() => {
     const path = window.location.pathname.replace(/^\/+|\/+$/g, "");
+    if (path === "__quiz") { setPhase("devquiz"); return; } // rota de dev: testar o novo quiz isolado
+    if (path === "__temas") { setPhase("devthemes"); return; } // rota de dev: galeria navegável dos temas
     if (path === "__preview-success") {
       setLead({ name: "Ana Beatriz", email: "ana@exemplo.com" });
       setPublishedUrl(`${window.location.origin}/ana-beatriz`);
       setPhase("published");
       return;
     }
+    if (path === "__preview-trial") {
+      setLead({ name: "Ana Beatriz", email: "ana@exemplo.com" });
+      setTrialUrl(`${window.location.origin}/ana-beatriz`);
+      setPhase("trial");
+      return;
+    }
     if (path) {
       setPhase("public");
-      supabase.from("sites").select("data").eq("slug", path).eq("status", "published").maybeSingle()
+      supabase.from("sites").select("data").eq("slug", path).in("status", ["published", "trial", "active"]).maybeSingle()
         .then(({ data }) => setPublicSite(data ? data.data : null));
       return;
     }
@@ -796,9 +978,28 @@ export default function App() {
         setSiteStatus(row.status);
         if (row.status === "published") setPublishedUrl(`${window.location.origin}/${row.slug}`);
         setPhase("site");
+      } else if (getPendingTrialSiteId() && await claimTrialSite(getPendingTrialSiteId(), session.user.id)) {
+        // ela já tinha visto o preview temporário (fase "trial") e acabou de
+        // criar a conta — vincula esse MESMO site (mesmo link) em vez de
+        // gerar um novo, e segue direto pro editor.
+        const { data: claimed } = await supabase.from("sites")
+          .select("slug, status, data, answers").eq("id", getPendingTrialSiteId()).maybeSingle();
+        setPendingTrialSiteId(null);
+        setAnswers(claimed?.answers || answersRef.current);
+        setSite(claimed?.data || null);
+        setSiteSlug(claimed?.slug || null);
+        setSiteStatus(claimed?.status || "trial");
+        setPhase("site");
+      } else if (Object.keys(answersRef.current).length) {
+        // acabou de confirmar o OTP no fim do quiz novo: já tem as respostas
+        // em memória (setAnswers no onComplete do OnboardingQuiz) — gera o
+        // site direto, sem repetir nada.
+        runGeneration(answersRef.current);
       } else {
-        setPhase("chat");
-        botSay(FLOW[0].bot.replace("{first}", firstName(name)));
+        // sessão existente sem site salvo e sem respostas em memória (ex:
+        // reabriu o link do e-mail direto, sem ter passado pelo quiz nesta
+        // aba) — manda pro quiz do zero.
+        setPhase("quiz");
       }
     };
 
@@ -808,7 +1009,7 @@ export default function App() {
     });
     supabase.auth.getSession().then(({ data }) => {
       if (data.session) hydrate(data.session);
-      else setPhase("welcome");
+      else setPhase("landing");
     });
     return () => sub.subscription.unsubscribe();
   }, []);
@@ -816,8 +1017,7 @@ export default function App() {
   const restartQuiz = () => {
     setMsgs([]); setStepIdx(0); setAnswers({}); setSite(null);
     setSiteSlug(null); setSiteStatus("draft"); setPublishedUrl(null);
-    setPhase("chat");
-    botSay(FLOW[0].bot.replace("{first}", firstName(lead.name)));
+    setPhase("quiz");
   };
 
   const changeTheme = (theme) => {
@@ -871,9 +1071,10 @@ export default function App() {
     if (!session) return null;
     const ownerId = session.user.id;
     const { data: existing } = await supabase.from("sites").select("id, slug").eq("owner_id", ownerId).maybeSingle();
-    const baseSlug = slugify(lead.name);
+    // site novo (ainda sem linha salva) nasce num slug curto e aleatório —
+    // o nome bonito só é escolhido no admin, depois que ela assina o plano.
     for (let n = 1; n <= 20; n++) {
-      const slug = existing?.slug || withSuffix(baseSlug, n);
+      const slug = existing?.slug || randomSlug();
       const payload = { owner_id: ownerId, slug, status, data: siteData, answers: answersData };
       const { error } = existing
         ? await supabase.from("sites").update(payload).eq("id", existing.id)
@@ -882,6 +1083,40 @@ export default function App() {
       if (existing || error.code !== "23505") return null; // só tenta de novo se foi conflito de slug numa criação nova
     }
     return null;
+  };
+
+  // cria o site "trial" sem dono, logo após o quiz — pra gerar um link
+  // temporário e visitável ANTES de pedir e-mail/conta. É publicado de
+  // verdade (status = 'trial' já é lido pela página pública), só que sem
+  // owner_id ainda. O id fica guardado pra ser "reivindicado" (vinculado à
+  // conta) quando ela fizer login logo depois — ver claimTrialSite.
+  const createTrialSite = async (siteData, answersData) => {
+    // telefone (WhatsApp) vira a âncora da página no banco — normalizado só em
+    // dígitos, pra recuperar depois sem depender do cache do navegador.
+    const phone = (answersData?.whatsapp || "").replace(/\D/g, "") || null;
+    let includePhone = true; // se a coluna 'phone' ainda não foi migrada, cria sem ela (não trava o MVP)
+    for (let n = 1; n <= 20; n++) {
+      const slug = randomSlug();
+      const payload = { owner_id: null, slug, status: "trial", data: siteData, answers: answersData };
+      if (includePhone) payload.phone = phone;
+      const { data, error } = await supabase.from("sites").insert(payload).select("id, slug").single();
+      if (!error) return data;
+      if (includePhone && (error.code === "PGRST204" || /phone/i.test(error.message || ""))) { includePhone = false; continue; }
+      if (error.code !== "23505") return null; // só tenta de novo se foi conflito de slug
+    }
+    return null;
+  };
+
+  // vincula o site anônimo (trial) recém-criado à conta que acabou de logar,
+  // em vez de criar um site novo do zero — o link temporário que ela já viu
+  // continua sendo o mesmo. Chamado assim que a sessão é confirmada (hydrate).
+  const claimTrialSite = async (trialSiteId, ownerId) => {
+    if (!trialSiteId) return false;
+    const { error } = await supabase.from("sites")
+      .update({ owner_id: ownerId })
+      .eq("id", trialSiteId)
+      .is("owner_id", null);
+    return !error;
   };
 
   const publishSite = async () => {
@@ -1183,8 +1418,14 @@ export default function App() {
     setTimeout(() => composerRef.current?.focus(), 0);
   };
 
-  const runGeneration = (all) => {
+  const runGeneration = async (all) => {
     const siteObj = buildSiteFromAnswers(all, lead);
+    // tenta escrever headline/subheadline/methodText/bio únicos com IA antes de
+    // mostrar o site (bloqueante, com timeout curto) — se falhar ou estourar,
+    // siteObj já é um site completo e válido com os textos determinísticos.
+    const aiCopy = await fetchAiCopy(all, siteObj.name);
+    // não sobrescreve uma bio que a pessoa mesma escreveu no quiz (campo "sobre")
+    if (aiCopy) Object.assign(siteObj, all.sobre ? { ...aiCopy, bio: siteObj.bio } : aiCopy);
     setSite(siteObj);
     // MVP mobile: sem editor com sidebar — cai numa tela simples de publicar.
     // Quem já tem site salvo (hydrate()) continua indo pro editor normalmente.
@@ -1206,9 +1447,10 @@ export default function App() {
         .sobre-grid { display:grid; grid-template-columns: 1fr 1fr; }
         .diff-grid { display:grid; grid-template-columns: 1fr 1fr; }
         .spec-grid { display:grid; grid-template-columns: 1fr 1fr; }
+        .spec-destaque-grid { grid-template-columns: 1.1fr .9fr; }
         @media (max-width: 640px) {
           :root { --cpad: 16px; }
-          .hero-grid, .sobre-grid, .diff-grid, .spec-grid { grid-template-columns: 1fr !important; }
+          .hero-grid, .sobre-grid, .diff-grid, .spec-grid, .spec-destaque-grid { grid-template-columns: 1fr !important; }
           .hero-grid > div:last-child, .sobre-grid > div:last-child { width: 100%; max-width: 420px; margin: 20px auto 0; }
           .diff-grid > div:first-child { width: 100%; max-width: 420px; margin: 0 auto 20px; }
           .site-nav { display: none !important; }
@@ -1238,7 +1480,7 @@ export default function App() {
   const renderAccountMenu = () => (
     <div style={{ position: "relative" }}>
       <button onClick={() => setAccountMenuOpen((v) => !v)} aria-label="Conta"
-        style={{ display: "flex", alignItems: "center", gap: 6, padding: 3, borderRadius: 999, border: `1px solid ${C.line}`, background: "#fff", cursor: "pointer" }}>
+        style={{ display: "flex", alignItems: "center", gap: 6, padding: 3, borderRadius: 999, border: `1px solid ${C.line}`, background: C.panel, cursor: "pointer" }}>
         <div style={{ width: 26, height: 26, borderRadius: 999, overflow: "hidden", flexShrink: 0, background: C.sageSoft, display: "flex", alignItems: "center", justifyContent: "center" }}>
           {site?.photo
             ? <img src={site.photo} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
@@ -1249,13 +1491,13 @@ export default function App() {
       {accountMenuOpen && (
         <>
           <div onClick={() => setAccountMenuOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 9 }} />
-          <div className="fade" style={{ position: "absolute", top: "calc(100% + 8px)", right: 0, zIndex: 10, minWidth: 190, background: "#fff", border: `1px solid ${C.line}`, borderRadius: 14, boxShadow: "0 20px 40px -20px rgba(0,0,0,.25)", overflow: "hidden" }}>
+          <div className="fade" style={{ position: "absolute", top: "calc(100% + 8px)", right: 0, zIndex: 10, minWidth: 190, background: C.panel, border: `1px solid ${C.line}`, borderRadius: 16, boxShadow: "0 20px 40px -20px rgba(0,0,0,.25)", overflow: "hidden" }}>
             <div style={{ padding: "12px 14px", borderBottom: `1px solid ${C.line}` }}>
               <div style={{ fontSize: 13, fontWeight: 600, color: C.ink }}>{lead.name}</div>
               <div style={{ fontSize: 11.5, color: C.sub, marginTop: 1, wordBreak: "break-all" }}>{lead.email}</div>
             </div>
             <button onClick={logout}
-              style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "10px 14px", border: "none", background: "none", cursor: "pointer", fontSize: 13, fontWeight: 600, color: "#B3453A", textAlign: "left" }}>
+              style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "10px 14px", border: "none", background: "none", cursor: "pointer", fontSize: 13, fontWeight: 600, color: C.danger, textAlign: "left" }}>
               <LogOut size={14} /> Sair
             </button>
           </div>
@@ -1264,21 +1506,23 @@ export default function App() {
     </div>
   );
 
-  // card de escolha de plano (mensal/anual) — usado tanto no editor ("site")
-  // quanto na tela simplificada de publicar do MVP mobile ("mobile-success").
+  // card de escolha de plano (mensal/anual). TEMPORARIAMENTE fora da UI: o
+  // checkout vai ser movido pra tela de sucesso / pós teste (ver Notion). A
+  // infra de pagamento (startCheckout, gate em publishSite) segue ativa; este
+  // render fica guardado pra ser religado no novo lugar — não é código morto.
   const renderPlanPicker = () => (
-    <div className="fade" style={{ marginBottom: 16, padding: 18, borderRadius: 14, background: C.sageSoft, border: `1px solid ${C.line}`, textAlign: "left" }}>
+    <div className="fade" style={{ marginBottom: 16, padding: 18, borderRadius: 16, background: C.sageSoft, border: `1px solid ${C.line}`, textAlign: "left" }}>
       <p style={{ margin: "0 0 4px", fontSize: 14.5, fontWeight: 600 }}>Escolha um plano pra publicar</p>
       <p style={{ margin: "0 0 14px", fontSize: 13, color: C.sub }}>Sua página fica no ar enquanto a assinatura estiver ativa.</p>
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
         <button onClick={() => startCheckout("monthly")} disabled={checkingOut}
-          style={{ flex: "1 1 180px", padding: "14px 16px", borderRadius: 12, border: `1px solid ${C.line}`, background: "#fff", cursor: checkingOut ? "default" : "pointer", textAlign: "left" }}>
-          <div style={{ fontWeight: 700, fontSize: 14 }}>Mensal</div>
+          style={{ flex: "1 1 180px", padding: "14px 16px", borderRadius: 12, border: `1px solid ${C.line}`, background: C.panel, cursor: checkingOut ? "default" : "pointer", textAlign: "left" }}>
+          <div style={{ fontWeight: 600, fontSize: 14 }}>Mensal</div>
           <div style={{ fontSize: 13, color: C.sub }}>R$ 49,90/mês</div>
         </button>
         <button onClick={() => startCheckout("yearly")} disabled={checkingOut}
-          style={{ flex: "1 1 180px", padding: "14px 16px", borderRadius: 12, border: `2px solid ${C.sage}`, background: "#fff", cursor: checkingOut ? "default" : "pointer", textAlign: "left" }}>
-          <div style={{ fontWeight: 700, fontSize: 14, color: C.sage }}>Anual</div>
+          style={{ flex: "1 1 180px", padding: "14px 16px", borderRadius: 12, border: `2px solid ${C.sage}`, background: C.panel, cursor: checkingOut ? "default" : "pointer", textAlign: "left" }}>
+          <div style={{ fontWeight: 600, fontSize: 14, color: C.sage }}>Anual</div>
           <div style={{ fontSize: 13, color: C.sub }}>R$ 29,90/mês — cobrado R$ 358,80/ano</div>
         </button>
       </div>
@@ -1286,13 +1530,159 @@ export default function App() {
     </div>
   );
 
+  /* ---- DEV: novo quiz selecionável isolado (rota /__quiz) ---- */
+  if (phase === "devquiz") {
+    return <OnboardingQuiz onComplete={(ans) => { console.log("[quiz] respostas:", ans); alert("Quiz concluído! Respostas no console (F12)."); }} />;
+  }
+
+  /* ---- DEV: galeria navegável dos 4 temas (rota /__temas) ---- */
+  if (phase === "devthemes") {
+    return <ThemeShowcase />;
+  }
+
   /* ---- LOADING inicial (checando sessão) ---- */
   if (phase === "loading") {
     return <Shell><div className="fade" style={{ color: C.sub, fontSize: 14 }}>Carregando...</div></Shell>;
   }
 
-  /* ---- WELCOME / login por magic link ---- */
-  if (phase === "welcome") {
+  /* ---- LANDING: copy + CTA, sem pedir nada, leva direto pro quiz ---- */
+  if (phase === "landing") {
+    return (
+      <div className="fade landing-page" style={{ minHeight: "100vh", background: C.paper, color: C.ink, fontFamily: "Inter, system-ui, sans-serif", display: "flex", flexDirection: "column" }}>
+        <style>{`
+          @import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..700;1,9..144,300..600&family=Inter:wght@400;500;600&display=swap');
+          *{box-sizing:border-box;}
+          @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;}}
+          .fade{animation:fade .5s ease both;} @keyframes fade{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:none;}}
+          .landing-cta{transition:transform .12s;} .landing-cta:hover{transform:translateY(-1px);}
+          .landing-cta:focus-visible{outline:2px solid ${C.sage};outline-offset:3px;}
+          .landing-nav-pill{transition:border-color .16s,color .16s;}
+          .landing-nav-pill:hover{border-color:${C.ink};color:${C.ink};}
+          @media (max-width: 640px) {
+            .landing-header{padding:16px 20px !important;}
+            .landing-hero{padding:120px 20px 60px !important;}
+            .landing-hero h1{font-size:34px !important;}
+          }
+        `}</style>
+        <header className="landing-header" style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 10, background: C.paper, padding: "20px 32px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, borderBottom: `1px solid ${C.line}` }}>
+          <Brand />
+          <button onClick={() => setPhase("quiz")} className="landing-nav-pill"
+            style={{ fontSize: 12, letterSpacing: ".08em", textTransform: "uppercase", fontWeight: 600, color: C.sub, background: "transparent", border: `1px solid ${C.line}`, borderRadius: 999, padding: "9px 16px", cursor: "pointer", fontFamily: "inherit" }}>
+            Comece por aqui
+          </button>
+        </header>
+
+        <main className="landing-hero" style={{ flex: 1, display: "flex", alignItems: "center", padding: "160px 32px 96px", maxWidth: 900, margin: "0 auto", width: "100%" }}>
+          <div>
+            <span style={{ fontSize: 12, letterSpacing: ".08em", textTransform: "uppercase", fontWeight: 600, color: C.clay }}>
+              3 minutos · sem cartão
+            </span>
+            <h1 style={{ fontFamily: "Fraunces, serif", fontWeight: 400, fontSize: "clamp(32px,5.2vw,50px)", lineHeight: 1.1, letterSpacing: "-.02em", margin: "16px 0 20px" }}>
+              Responda algumas perguntas.<br />
+              Saia daqui com o <em style={{ fontStyle: "italic", color: C.sage }}>seu site no ar</em>.
+            </h1>
+            <p style={{ color: C.sub, fontSize: 17, lineHeight: 1.6, maxWidth: "56ch", margin: "0 0 32px" }}>
+              Você não vai escolher template, nem mexer em editor. Só responder sobre o seu trabalho — e o site sai pronto, com seus textos, sua foto e o botão de agendar.
+            </p>
+            <button onClick={() => setPhase("quiz")} className="landing-cta"
+              style={{ padding: "15px 30px", borderRadius: 999, border: "none", cursor: "pointer", background: C.dark, color: C.paper, fontWeight: 500, fontSize: 15, fontFamily: "inherit", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+              Começar
+            </button>
+          </div>
+        </main>
+        <SupportFab />
+      </div>
+    );
+  }
+
+  /* ---- QUIZ (novo, selecionáveis) ---- */
+  if (phase === "quiz") {
+    return (
+      <>
+      <OnboardingQuiz
+        onComplete={async (ans) => {
+          const name = titleCase(ans.nome || lead.name);
+          setAnswers(ans);
+          setLead((l) => ({ ...l, name }));
+          setPhase("generating");
+          const siteObj = buildSiteFromAnswers(ans, { name, email: "" });
+          // gera o texto único já aqui, no trial (antes do e-mail) — é o primeiro
+          // site que a pessoa vê, e claimTrialSite reaproveita esses mesmos dados
+          // depois do OTP, então essa é a ÚNICA chamada à IA por pessoa.
+          const aiCopy = await fetchAiCopy(ans, siteObj.name);
+          // não sobrescreve uma bio que a pessoa mesma escreveu no quiz (campo "sobre")
+          if (aiCopy) Object.assign(siteObj, ans.sobre ? { ...aiCopy, bio: siteObj.bio } : aiCopy);
+          setSite(siteObj);
+          const created = await createTrialSite(siteObj, ans);
+          if (!created) {
+            // sem link temporário por algum motivo (erro de rede/banco) — não
+            // trava o funil, segue direto pro pedido de e-mail como antes.
+            setPhase("quiz-email");
+            return;
+          }
+          setPendingTrialSiteId(created.id);
+          setSiteSlug(created.slug);
+          setSiteStatus("trial");
+          setTrialUrl(`${window.location.origin}/${created.slug}`);
+          setPhase("trial");
+        }}
+      />
+      <SupportFab />
+      </>
+    );
+  }
+
+  /* ---- gerando o site (transição curta entre o fim do quiz e o link) ---- */
+  if (phase === "generating") {
+    return (
+      <Shell>
+        <div className="fade" style={{ textAlign: "center", maxWidth: 420, width: "100%" }}>
+          <Loader2 size={30} color={C.sage} className="spin" style={{ marginBottom: 18 }} />
+          <h2 style={{ fontFamily: "Fraunces, serif", fontSize: 22, fontWeight: 600, margin: "0 0 8px" }}>
+            Criando o site de {firstName(lead.name)}...
+          </h2>
+          <p style={{ color: C.sub, fontSize: 14.5, margin: 0 }}>Isso leva só alguns segundos.</p>
+        </div>
+      </Shell>
+    );
+  }
+
+  /* ---- TRIAL: aha moment — site pronto num link temporário, antes de pedir e-mail ---- */
+  if (phase === "trial") {
+    return (
+      <Shell>
+        <div className="fade" style={{ textAlign: "center", maxWidth: 460, width: "100%" }}>
+          <div style={{ width: 56, height: 56, borderRadius: 16, background: C.sage, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 24px" }}>
+            <Sparkles size={26} color="#fff" />
+          </div>
+          <h2 style={{ fontFamily: "Fraunces, serif", fontSize: 27, fontWeight: 600, margin: "0 0 10px" }}>
+            Prontinho, {firstName(lead.name)}! Seu site já existe.
+          </h2>
+          <p style={{ color: C.sub, fontSize: 15, lineHeight: 1.55, margin: "0 0 24px" }}>
+            Dá uma olhada em como ficou — o link já está no ar pra você compartilhar.
+          </p>
+
+          <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 8px 8px 18px", borderRadius: 12, background: C.panel, border: `1px solid ${C.line}` }}>
+            <span style={{ flex: 1, minWidth: 0, textAlign: "left", fontSize: 14.5, fontWeight: 600, color: C.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {trialUrl?.replace(/^https?:\/\//, "")}
+            </span>
+            <button onClick={() => { navigator.clipboard?.writeText(trialUrl); setTrialLinkCopied(true); setTimeout(() => setTrialLinkCopied(false), 1800); }}
+              aria-label={trialLinkCopied ? "Copiado!" : "Copiar link"} title={trialLinkCopied ? "Copiado!" : "Copiar link"}
+              style={{ flexShrink: 0, width: 34, height: 34, borderRadius: 9, border: "none", background: "transparent", color: trialLinkCopied ? C.sage : C.sub, cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
+              {trialLinkCopied ? <Check size={16} /> : <Copy size={15} />}
+            </button>
+            <a href={trialUrl} target="_blank" rel="noreferrer" className="btn-primary-hover"
+              style={{ flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 7, padding: "10px 16px", borderRadius: 999, border: "none", background: C.dark, color: C.paper, fontWeight: 500, fontSize: 13.5, textDecoration: "none", whiteSpace: "nowrap" }}>
+              <ExternalLink size={14} /> Ver site no ar
+            </a>
+          </div>
+        </div>
+      </Shell>
+    );
+  }
+
+  /* ---- QUIZ: e-mail + OTP (último passo, depois do quiz) ---- */
+  if (phase === "quiz-email") {
     const ok = /\S+@\S+\.\S+/.test(lead.email);
     if (linkSent) {
       return (
@@ -1309,16 +1699,16 @@ export default function App() {
               <input value={otpCode} onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, "").slice(0, 8))} placeholder="00000000"
                 inputMode="numeric" disabled={verifyingOtp}
                 onKeyDown={(e) => e.key === "Enter" && verifyCode()}
-                style={{ flex: 1, minWidth: 0, padding: "12px 15px", borderRadius: 11, border: `1px solid ${C.line}`, background: verifyingOtp ? "#F3F1EA" : "#fff", fontSize: 16, letterSpacing: ".1em", textAlign: "center", fontFamily: "Inter" }} />
-              <button onClick={verifyCode} disabled={!otpCode.trim() || verifyingOtp}
-                style={{ padding: "0 20px", borderRadius: 11, border: "none", cursor: otpCode.trim() && !verifyingOtp ? "pointer" : "default", background: otpCode.trim() ? C.dark : "#D9D5CA", color: "#fff", fontWeight: 600, fontSize: 13.5, whiteSpace: "nowrap", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 7 }}>
+                style={{ flex: 1, minWidth: 0, padding: "13px 15px", borderRadius: 12, border: `1px solid ${C.line}`, background: verifyingOtp ? C.paper : C.panel, fontSize: 16, letterSpacing: ".1em", textAlign: "center", fontFamily: "Inter" }} />
+              <button onClick={verifyCode} disabled={!otpCode.trim() || verifyingOtp} className="btn-primary-hover"
+                style={{ padding: "0 20px", borderRadius: 999, border: "none", cursor: otpCode.trim() && !verifyingOtp ? "pointer" : "default", background: otpCode.trim() ? C.dark : C.line, color: otpCode.trim() ? C.paper : C.sub, fontWeight: 500, fontSize: 13.5, whiteSpace: "nowrap", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 7 }}>
                 {verifyingOtp ? (<><Loader2 size={15} className="spin" /> Verificando...</>) : "Entrar"}
               </button>
             </div>
-            {authError && <p style={{ color: "#B3453A", fontSize: 13, margin: "12px 0 0" }}>{authError}</p>}
+            {authError && <p style={{ color: C.danger, fontSize: 13, margin: "12px 0 0" }}>{authError}</p>}
             <p style={{ color: C.sub, fontSize: 13, margin: "16px 0 0" }}>
               Não chegou? Confira o spam ou{" "}
-              <button onClick={() => { setLinkSent(false); setOtpCode(""); setAuthError(""); }} style={{ background: "none", border: "none", padding: 0, color: C.sage, fontWeight: 600, fontSize: 13, cursor: "pointer", textDecoration: "underline" }}>
+              <button onClick={() => { setLinkSent(false); setOtpCode(""); setAuthError(""); }} className="link-hover" style={{ background: "none", border: "none", padding: 0, color: C.sage, fontWeight: 600, fontSize: 13, cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 3 }}>
                 tente de novo
               </button>.
             </p>
@@ -1331,361 +1721,27 @@ export default function App() {
         <div className="fade welcome-card" style={{ width: "100%", maxWidth: 440, background: C.panel, border: `1px solid ${C.line}`, borderRadius: 22, boxShadow: "0 30px 70px -40px rgba(0,0,0,.3)" }}>
           <Brand />
           <h1 style={{ fontFamily: "Fraunces, serif", fontSize: 30, fontWeight: 600, lineHeight: 1.12, margin: "26px 0 12px", letterSpacing: "-.01em" }}>
-            Site para psicólogo, simples como uma conversa.
+            Falta só o seu e-mail, {firstName(lead.name)}.
           </h1>
           <p style={{ color: C.sub, fontSize: 15, lineHeight: 1.6, margin: "0 0 28px" }}>
-            Sem formulário, sem tela em branco. Você responde, a gente escreve — pronto em uns 3 minutos.
+            É por ele que você acessa seu site depois — sem senha, só um código.
           </p>
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             <div>
               <div style={{ fontSize: 12, color: C.sub, marginBottom: 6, fontWeight: 500 }}>Qual seu e-mail mesmo?</div>
               <input value={lead.email} onChange={(e) => setLead({ ...lead, email: e.target.value })} placeholder="voce@email.com"
                 onKeyDown={(e) => e.key === "Enter" && sendMagicLink()}
-                style={{ width: "100%", padding: "13px 15px", borderRadius: 11, border: `1px solid ${C.line}`, background: "#fff", fontSize: 15, fontFamily: "Inter" }} />
+                style={{ width: "100%", padding: "13px 15px", borderRadius: 12, border: `1px solid ${C.line}`, background: C.panel, fontSize: 15, fontFamily: "Inter" }} />
             </div>
           </div>
-          {authError && <p style={{ color: "#B3453A", fontSize: 13, margin: "12px 0 0" }}>{authError}</p>}
-          <button onClick={sendMagicLink} disabled={!ok || sendingLink}
-            style={{ marginTop: 22, width: "100%", padding: "14px", borderRadius: 999, border: "none", cursor: ok && !sendingLink ? "pointer" : "default", background: ok ? C.dark : "#D9D5CA", color: "#fff", fontWeight: 600, fontSize: 15, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8, transition: "background .2s" }}>
+          {authError && <p style={{ color: C.danger, fontSize: 13, margin: "12px 0 0" }}>{authError}</p>}
+          <button onClick={sendMagicLink} disabled={!ok || sendingLink} className="btn-primary-hover"
+            style={{ marginTop: 22, width: "100%", padding: "14px", borderRadius: 999, border: "none", cursor: ok && !sendingLink ? "pointer" : "default", background: ok ? C.dark : C.line, color: ok ? C.paper : C.sub, fontWeight: 500, fontSize: 15, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
             {sendingLink ? "Enviando..." : "Entrar"} <ArrowRight size={17} />
           </button>
           <p style={{ fontSize: 11.5, color: C.sub, textAlign: "center", margin: "14px 0 0" }}>
             100% seguro, sem spam.
           </p>
-        </div>
-      </Shell>
-    );
-  }
-
-  /* ---- CHAT ---- */
-  if (phase === "chat") {
-    return (
-      <Shell>
-        <div className="chat-split" style={{ width: "100%", maxWidth: 1180, display: "flex", gap: 20 }}>
-        <div className="chat-card chat-card--split" style={{ width: 420, flexShrink: 0, background: C.panel, border: `1px solid ${C.line}`, borderRadius: 22, display: "flex", flexDirection: "column", overflow: "hidden", boxShadow: "0 30px 70px -40px rgba(0,0,0,.3)" }}>
-          <div style={{ padding: "16px 20px", borderBottom: `1px solid ${C.line}`, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <Brand />
-            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <span style={{ fontSize: 11.5, color: C.sage, fontWeight: 600 }}>● online</span>
-              {renderAccountMenu()}
-            </div>
-          </div>
-          <div ref={scrollRef} style={{ flex: 1, overflow: "auto", padding: "20px", display: "flex", flexDirection: "column", gap: 12 }}>
-            {msgs.map((m) => {
-              const editable = m.role === "user" && m.key;
-              if (editingId === m.id) {
-                return (
-                  <div key={m.id} style={{ display: "flex", justifyContent: "flex-end" }}>
-                    <div style={{ display: "flex", gap: 7, alignItems: "center", width: "88%", justifyContent: "flex-end" }}>
-                      <input autoFocus value={editDraft}
-                        onChange={(e) => setEditDraft(m.key === "whatsapp" ? formatPhoneBR(e.target.value) : e.target.value)}
-                        onKeyDown={(e) => { if (e.key === "Enter") saveEdit(); if (e.key === "Escape") cancelEdit(); }}
-                        style={{ flex: 1, minWidth: 0, padding: "10px 14px", borderRadius: 14, border: `1px solid ${C.sage}`, background: "#fff", fontSize: 14.5, fontFamily: "Inter" }} />
-                      <button onClick={saveEdit} aria-label="Salvar"
-                        style={{ width: 38, height: 38, flexShrink: 0, borderRadius: 999, border: "none", background: C.sage, color: "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                        <Check size={16} />
-                      </button>
-                      <button onClick={cancelEdit} aria-label="Cancelar"
-                        style={{ width: 38, height: 38, flexShrink: 0, borderRadius: 999, border: `1px solid ${C.line}`, background: "#fff", color: C.sub, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                        <X size={16} />
-                      </button>
-                    </div>
-                  </div>
-                );
-              }
-              return (
-                <div key={m.id} className="bub" style={{ display: "flex", justifyContent: m.role === "user" ? "flex-end" : "flex-start" }}>
-                  <div
-                    onClick={() => editable && startEdit(m)}
-                    title={editable ? "Toque para editar" : undefined}
-                    style={{
-                      position: "relative", maxWidth: "82%", padding: "11px 15px",
-                      paddingRight: editable ? 34 : 15,
-                      borderRadius: 16, fontSize: 14.5, lineHeight: 1.5,
-                      background: m.role === "user" ? C.bubbleUser : "#fff",
-                      color: m.role === "user" ? "#fff" : C.ink,
-                      border: m.role === "user" ? "none" : `1px solid ${C.line}`,
-                      borderBottomRightRadius: m.role === "user" ? 5 : 16,
-                      borderBottomLeftRadius: m.role === "user" ? 16 : 5,
-                      cursor: editable ? "pointer" : "default",
-                      outline: editingKey === m.key ? `2px solid ${C.acid}` : "none",
-                      outlineOffset: 2,
-                    }}>
-                    {m.photo
-                      ? <span style={{ display: "inline-flex", alignItems: "center", gap: 9 }}>
-                          <img src={m.photo} alt="" style={{ width: 30, height: 30, borderRadius: 7, objectFit: "cover" }} />{m.text}
-                        </span>
-                      : m.text}
-                    {editable && (
-                      <Pencil size={12} style={{ position: "absolute", top: 10, right: 12, opacity: .5 }} />
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-            {typing && (
-              <div className="bub" style={{ display: "flex" }}>
-                <div style={{ padding: "13px 16px", borderRadius: 16, borderBottomLeftRadius: 5, background: "#fff", border: `1px solid ${C.line}`, display: "flex", gap: 4 }}>
-                  <span className="dot" /><span className="dot" /><span className="dot" />
-                </div>
-              </div>
-            )}
-          </div>
-          {/* composer */}
-          <div style={{ padding: "14px 16px", borderTop: `1px solid ${C.line}`, background: C.panel }}>
-            {editingKey && (
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10, fontSize: 12.5, color: C.sage, fontWeight: 600 }}>
-                Editando resposta anterior
-                <button onClick={cancelKeyEdit} style={{ background: "none", border: "none", color: C.sub, fontSize: 12.5, cursor: "pointer", fontWeight: 500 }}>
-                  Cancelar
-                </button>
-              </div>
-            )}
-            {!typing && activeType === "chips" && (
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: (editingFlowStep || step).allowText ? 10 : 0 }}>
-                {(editingFlowStep || step).options.map((o) => (
-                  <button key={o} onClick={() => chooseChip(o)}
-                    style={{ padding: "9px 15px", borderRadius: 999, border: `1px solid ${C.sage}`, background: C.sageSoft, color: C.sage, fontWeight: 600, fontSize: 13.5, cursor: "pointer" }}>{o}</button>
-                ))}
-              </div>
-            )}
-            {!typing && activeType === "themeStyle" && themeSub === "theme" && (
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 8, marginBottom: 4 }}>
-                {Object.entries(THEME_META).map(([key, meta]) => (
-                  <button key={key} onClick={() => chooseTheme(key)}
-                    style={{ display: "flex", flexDirection: "column", gap: 6, padding: "14px 14px 12px", borderRadius: 12, border: `1px solid ${C.line}`, background: "#fff", cursor: "pointer", textAlign: "left" }}>
-                    <span style={{ fontFamily: meta.headingFont, fontWeight: meta.headingWeight, fontStyle: meta.headingStyle, fontSize: 20, color: C.ink, lineHeight: 1.15 }}>Aa</span>
-                    <span style={{ fontFamily: meta.bodyFont, fontSize: 11.5, color: C.sub, lineHeight: 1.4 }}>{meta.desc}</span>
-                    <span style={{ fontSize: 12.5, fontWeight: 600, color: C.ink, marginTop: 2 }}>{meta.label}</span>
-                  </button>
-                ))}
-              </div>
-            )}
-            {!typing && activeType === "themeStyle" && themeSub === "colorScheme" && (
-              <div>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-                  <span style={{ fontSize: 12, color: C.sub, fontWeight: 500 }}>Tema: <b style={{ color: C.ink }}>{THEME_META[themeSel].label}</b></span>
-                  <button onClick={() => setThemeSub("theme")} style={{ background: "none", border: "none", color: C.sage, fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
-                    Trocar tema
-                  </button>
-                </div>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 8, marginBottom: 4 }}>
-                  {Object.keys(COLOR_SCHEMES).map((o) => (
-                    <button key={o} onClick={() => confirmColorScheme(o)}
-                      style={{ display: "flex", flexDirection: "column", gap: 8, padding: "10px 12px", borderRadius: 12, border: `1px solid ${C.line}`, background: "#fff", cursor: "pointer", textAlign: "left" }}>
-                      <span style={{ fontFamily: THEME_META[themeSel].headingFont, fontWeight: THEME_META[themeSel].headingWeight, fontStyle: THEME_META[themeSel].headingStyle, fontSize: 15, color: COLOR_SCHEMES[o].accent, lineHeight: 1.2 }}>
-                        Título aqui
-                      </span>
-                      <div style={{ display: "flex", borderRadius: 7, overflow: "hidden", height: 18 }}>
-                        {COLOR_SCHEMES[o].swatches.map((sw, i) => (
-                          <div key={i} style={{ flex: 1, background: sw }} />
-                        ))}
-                      </div>
-                      <span style={{ fontSize: 12.5, fontWeight: 600, color: C.ink }}>{o}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-            {!typing && activeType === "specialty" && (
-              <div>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 10 }}>
-                  {SPECIALTY_TITLES.map((s) => {
-                    const on = specialtySel === s;
-                    return (
-                      <button key={s} onClick={() => { setSpecialtySel(s); setSpecialtyCustom(""); }}
-                        style={{ padding: "8px 13px", borderRadius: 999, fontWeight: 600, fontSize: 13, cursor: "pointer",
-                          border: `1px solid ${on ? C.sage : C.line}`, background: on ? C.sage : "#fff", color: on ? "#fff" : C.ink }}>
-                        {s}
-                      </button>
-                    );
-                  })}
-                </div>
-                <div style={{ display: "flex", gap: 9, alignItems: "center" }}>
-                  <input value={specialtyCustom} onChange={(e) => { setSpecialtyCustom(e.target.value); setSpecialtySel(""); }}
-                    placeholder="ou digite a sua..." onKeyDown={(e) => e.key === "Enter" && confirmSpecialty()}
-                    style={{ flex: 1, minWidth: 0, padding: "11px 15px", borderRadius: 999, border: `1px solid ${C.line}`, background: "#fff", fontSize: 14, fontFamily: "Inter" }} />
-                  <button onClick={confirmSpecialty} disabled={!(specialtySel || specialtyCustom.trim())} aria-label="Continuar"
-                    style={{ width: 44, height: 44, flexShrink: 0, borderRadius: 999, border: "none",
-                      background: (specialtySel || specialtyCustom.trim()) ? C.dark : "#D9D5CA", color: "#fff",
-                      cursor: (specialtySel || specialtyCustom.trim()) ? "pointer" : "default",
-                      display: "flex", alignItems: "center", justifyContent: "center" }}>
-                    <ArrowRight size={17} />
-                  </button>
-                </div>
-              </div>
-            )}
-            {!typing && activeType === "crp" && (
-              <div>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 10 }}>
-                  {CRP_PREFIXES.map((p) => (
-                    <button key={p} onClick={() => setCrpPrefix(p)}
-                      style={{ padding: "7px 12px", borderRadius: 999, fontWeight: 600, fontSize: 12.5, cursor: "pointer",
-                        border: `1px solid ${crpPrefix === p ? C.sage : C.line}`, background: crpPrefix === p ? C.sage : "#fff", color: crpPrefix === p ? "#fff" : C.ink }}>
-                      {p}
-                    </button>
-                  ))}
-                </div>
-                <div style={{ display: "flex", gap: 9, alignItems: "center", marginBottom: 10 }}>
-                  <div style={{ display: "flex", alignItems: "center", flex: 1, minWidth: 0, border: `1px solid ${C.line}`, borderRadius: 999, background: "#fff", overflow: "hidden" }}>
-                    <span style={{ padding: "11px 0 11px 15px", fontSize: 14, fontWeight: 600, color: C.sub, whiteSpace: "nowrap" }}>CRP {crpPrefix}/</span>
-                    <input value={crpNumber} onChange={(e) => setCrpNumber(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                      placeholder="000000" inputMode="numeric" maxLength={6} onKeyDown={(e) => e.key === "Enter" && confirmCrp()}
-                      style={{ flex: 1, minWidth: 0, border: "none", padding: "11px 15px 11px 4px", fontSize: 14, fontFamily: "Inter", background: "transparent" }} />
-                  </div>
-                  <button onClick={confirmCrp} disabled={!crpNumber.trim()} aria-label="Continuar"
-                    style={{ width: 44, height: 44, flexShrink: 0, borderRadius: 999, border: "none",
-                      background: crpNumber.trim() ? C.dark : "#D9D5CA", color: "#fff",
-                      cursor: crpNumber.trim() ? "pointer" : "default",
-                      display: "flex", alignItems: "center", justifyContent: "center" }}>
-                    <ArrowRight size={17} />
-                  </button>
-                </div>
-                <button onClick={confirmNoCrp}
-                  style={{ width: "100%", padding: "10px", borderRadius: 999, border: `1px dashed ${C.line}`, background: "transparent", color: C.sub, fontWeight: 500, fontSize: 12.5, cursor: "pointer" }}>
-                  Ainda não tenho registro (estou em formação)
-                </button>
-              </div>
-            )}
-            {!typing && activeType === "link" && (
-              <div>
-                <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 8 }}>
-                  <div style={{ display: "flex", alignItems: "center", flex: 1, minWidth: 0, border: `1px solid ${C.line}`, borderRadius: 999, background: "#fff", overflow: "hidden" }}>
-                    <span style={{ padding: "11px 0 11px 15px", fontSize: 13.5, color: C.sub, whiteSpace: "nowrap" }}>psipage.com/</span>
-                    <input value={linkSlug} onChange={(e) => setLinkSlug(slugify(e.target.value))}
-                      placeholder="seu-nome" onKeyDown={(e) => e.key === "Enter" && confirmLink()}
-                      style={{ flex: 1, minWidth: 0, border: "none", padding: "11px 15px 11px 4px", fontSize: 14, fontFamily: "Inter", background: "transparent" }} />
-                  </div>
-                  <button onClick={confirmLink} disabled={!linkSlug.trim()} aria-label="Continuar"
-                    style={{ width: 44, height: 44, flexShrink: 0, borderRadius: 999, border: "none",
-                      background: linkSlug.trim() ? C.dark : "#D9D5CA", color: "#fff",
-                      cursor: linkSlug.trim() ? "pointer" : "default",
-                      display: "flex", alignItems: "center", justifyContent: "center" }}>
-                    <ArrowRight size={17} />
-                  </button>
-                </div>
-                <p style={{ fontSize: 12, color: C.sub, margin: 0, paddingLeft: 2 }}>
-                  Pode trocar depois. Quer um domínio só seu? Dá pra conectar no plano Pro.
-                </p>
-              </div>
-            )}
-            {!typing && activeType === "image" && (
-              <div>
-                <input type="file" accept="image/*" ref={fileRef} style={{ display: "none" }} onChange={handleImageFile} />
-                {imageDraft ? (
-                  <div style={{ display: "flex", alignItems: "center", gap: 11 }}>
-                    <img src={imageDraft} alt="" style={{ width: 54, height: 54, borderRadius: 12, objectFit: "cover", border: `1px solid ${C.line}` }} />
-                    <button onClick={() => confirmImage(imageDraft)}
-                      style={{ flex: 1, padding: "12px", borderRadius: 999, border: "none", background: C.dark, color: "#fff", fontWeight: 600, fontSize: 14, cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 7 }}>
-                      <Check size={16} /> {(editingFlowStep || step)?.key === "logo" ? "Usar esta logo" : "Usar esta foto"}
-                    </button>
-                    <button onClick={() => setImageDraft("")} aria-label="Trocar"
-                      style={{ width: 44, height: 44, flexShrink: 0, borderRadius: 999, border: `1px solid ${C.line}`, background: "#fff", color: C.sub, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                      <X size={16} />
-                    </button>
-                  </div>
-                ) : (
-                  <div>
-                    <div style={{ display: "flex", gap: 9, alignItems: "center", marginBottom: 10 }}>
-                      <button onClick={() => fileRef.current?.click()}
-                        style={{ flex: 1, padding: "12px", borderRadius: 999, border: `1px solid ${C.sage}`, background: C.sageSoft, color: C.sage, fontWeight: 600, fontSize: 14, cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
-                        <ImageIcon size={16} /> {(editingFlowStep || step)?.key === "logo" ? "Escolher logo" : "Escolher foto"}
-                      </button>
-                      <button onClick={() => confirmImage("")}
-                        style={{ flexShrink: 0, padding: "0 18px", height: 44, borderRadius: 999, border: `1px solid ${C.line}`, background: "#fff", color: C.sub, fontWeight: 600, fontSize: 13.5, cursor: "pointer" }}>
-                        Pular
-                      </button>
-                    </div>
-                    <div style={{ display: "flex", gap: 9, alignItems: "center" }}>
-                      <input value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} placeholder="ou cole o link de uma imagem"
-                        onKeyDown={(e) => e.key === "Enter" && imageUrl.trim() && setImageDraft(imageUrl.trim())}
-                        style={{ flex: 1, minWidth: 0, padding: "11px 15px", borderRadius: 999, border: `1px solid ${C.line}`, background: "#fff", fontSize: 14, fontFamily: "Inter" }} />
-                      <button onClick={() => imageUrl.trim() && setImageDraft(imageUrl.trim())} aria-label="Usar link"
-                        style={{ width: 42, height: 42, flexShrink: 0, borderRadius: 999, border: `1px solid ${C.line}`, background: "#fff", color: C.sub, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                        <ArrowRight size={16} />
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-            {!typing && activeType === "cards" && (
-              <div>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 10, maxHeight: 168, overflowY: "auto" }}>
-                  {cardOpts.map((o) => {
-                    const on = cardSel.includes(o);
-                    return (
-                      <button key={o} onClick={() => toggleCard(o)}
-                        style={{ display: "inline-flex", alignItems: "center", padding: "9px 14px", borderRadius: 999, fontWeight: 600, fontSize: 13.5, cursor: "pointer",
-                          border: `1px solid ${on ? C.sage : C.line}`,
-                          background: on ? C.sage : "#fff",
-                          color: on ? "#fff" : C.ink, transition: "all .15s" }}>
-                        {o}
-                      </button>
-                    );
-                  })}
-                </div>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 9, alignItems: "center" }}>
-                  <input value={cardCustom} onChange={(e) => setCardCustom(e.target.value)} placeholder="Adicionar outro tema..."
-                    onKeyDown={(e) => e.key === "Enter" && addCustomCard()}
-                    style={{ flex: 1, minWidth: 120, padding: "11px 15px", borderRadius: 999, border: `1px solid ${C.line}`, background: "#fff", fontSize: 14, fontFamily: "Inter" }} />
-                  <button onClick={addCustomCard} disabled={!cardCustom.trim()} aria-label="Adicionar tema personalizado à lista" title="Adicionar tema personalizado à lista"
-                    style={{ width: 42, height: 42, flexShrink: 0, borderRadius: 999, cursor: cardCustom.trim() ? "pointer" : "default", display: "flex", alignItems: "center", justifyContent: "center",
-                      border: `1px solid ${cardCustom.trim() ? C.sage : C.line}`, background: cardCustom.trim() ? C.sageSoft : "#fff", color: cardCustom.trim() ? C.sage : "#C9C4B7" }}>
-                    <Plus size={17} />
-                  </button>
-                  <button onClick={confirmCards} disabled={!cardSel.length}
-                    style={{ flex: "1 0 auto", minWidth: 150, padding: "0 18px", height: 42, borderRadius: 999, border: "none", cursor: cardSel.length ? "pointer" : "default",
-                      background: cardSel.length ? C.dark : "#D9D5CA", color: "#fff", fontWeight: 600, fontSize: 13.5, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
-                    Continuar {cardSel.length ? `(${cardSel.length})` : ""} <ArrowRight size={15} />
-                  </button>
-                </div>
-              </div>
-            )}
-            {!editingKey && !typing && (step?.type === "text" || step?.allowText) && (
-              <div>
-                {(() => {
-                  const activeStarters = step?.startersByTone?.[answers.tom] || step?.startersByTone?.["Acolhedor"] || step?.starters;
-                  return activeStarters && (
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 7, marginBottom: 10 }}>
-                    {activeStarters.map((s) => (
-                      <button key={s.label} onClick={() => addStarter(s.template)}
-                        style={{ padding: "7px 13px", borderRadius: 999, border: `1px dashed ${C.sage}`, background: C.sageSoft, color: C.sage, fontWeight: 500, fontSize: 13, cursor: "pointer" }}>
-                        {s.label}
-                      </button>
-                    ))}
-                  </div>
-                  );
-                })()}
-                <div style={{ display: "flex", gap: 9, alignItems: "flex-end" }}>
-                  {step?.key === "sobre" ? (
-                    <textarea ref={composerRef} value={draft} rows={1}
-                      onChange={(e) => setDraft(e.target.value)}
-                      placeholder={step?.ph || "Escreva aqui..."}
-                      onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); submit(draft); } }}
-                      style={{ flex: 1, minWidth: 0, padding: "12px 15px", borderRadius: 18, border: `1px solid ${C.line}`, background: "#fff", fontSize: 14.5, fontFamily: "Inter", resize: "none", maxHeight: 220, overflowY: "auto", lineHeight: 1.5 }} />
-                  ) : (
-                    <input ref={composerRef} value={draft}
-                      onChange={(e) => setDraft(step?.key === "whatsapp" ? formatPhoneBR(e.target.value) : e.target.value)}
-                      placeholder={step?.ph || "Escreva aqui..."}
-                      inputMode={step?.key === "whatsapp" ? "numeric" : undefined}
-                      onKeyDown={(e) => e.key === "Enter" && submit(draft)}
-                      style={{ flex: 1, minWidth: 0, padding: "12px 15px", borderRadius: 999, border: `1px solid ${C.line}`, background: "#fff", fontSize: 14.5, fontFamily: "Inter" }} />
-                  )}
-                  <button onClick={() => submit(draft)} aria-label="Enviar"
-                    style={{ width: 44, height: 44, flexShrink: 0, borderRadius: 999, border: "none", background: C.dark, color: "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                    <Send size={17} />
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-        <div className="chat-preview-pane fade" style={{ flex: 1, minWidth: 0, borderRadius: 18, border: `1px solid ${C.line}`, overflow: "hidden", background: "#fff", boxShadow: "0 24px 60px -36px rgba(0,0,0,.3)" }}>
-          <PreviewFrame width="100%" radius={0} highlightField={justFilled}>
-            <ThemedSite d={previewSite} />
-          </PreviewFrame>
-        </div>
         </div>
       </Shell>
     );
@@ -1705,13 +1761,11 @@ export default function App() {
           <p style={{ color: C.sub, fontSize: 15, margin: "0 0 24px" }}>
             Recebemos suas respostas e seu site já está pronto. Publique agora pra ele ficar no ar.
           </p>
-          {showPlanPicker ? renderPlanPicker() : (
-            <button onClick={publishSite} disabled={publishing}
-              style={{ width: "100%", padding: "14px", borderRadius: 999, border: "none", cursor: publishing ? "default" : "pointer", background: C.dark, color: "#fff", fontWeight: 600, fontSize: 15, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
-              <Check size={16} /> {publishing ? "Publicando..." : "Publicar meu site"}
-            </button>
-          )}
-          {authError && <p style={{ color: "#B3453A", fontSize: 13, margin: "12px 0 0" }}>{authError}</p>}
+          <button onClick={publishSite} disabled={publishing} className="btn-primary-hover"
+            style={{ width: "100%", padding: "14px", borderRadius: 999, border: "none", cursor: publishing ? "default" : "pointer", background: C.dark, color: C.paper, fontWeight: 500, fontSize: 15, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+            <Check size={16} /> {publishing ? "Publicando..." : "Publicar meu site"}
+          </button>
+          {authError && <p style={{ color: C.danger, fontSize: 13, margin: "12px 0 0" }}>{authError}</p>}
         </div>
       </Shell>
     );
@@ -1737,24 +1791,24 @@ export default function App() {
               {publishedUrl?.replace(/^https?:\/\//, "")}
             </span>
             <button onClick={() => { navigator.clipboard?.writeText(publishedUrl); setLinkCopied(true); setTimeout(() => setLinkCopied(false), 1800); }}
-              style={{ padding: "9px 14px", borderRadius: 9, border: "none", background: linkCopied ? C.sage : C.dark, color: "#fff", fontWeight: 600, fontSize: 13, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6, whiteSpace: "nowrap", transition: "background .15s" }}>
+              style={{ padding: "9px 14px", borderRadius: 999, border: "none", background: linkCopied ? C.sage : C.dark, color: C.paper, fontWeight: 500, fontSize: 13, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6, whiteSpace: "nowrap", transition: "background .16s" }}>
               <Copy size={14} /> {linkCopied ? "Copiado!" : "Copiar link"}
             </button>
           </div>
 
           <div style={{ display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap" }}>
-            <a href={publishedUrl} target="_blank" rel="noreferrer"
-              style={{ padding: "12px 20px", borderRadius: 999, border: "none", background: C.dark, color: "#fff", fontWeight: 600, fontSize: 14, cursor: "pointer", textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 7 }}>
+            <a href={publishedUrl} target="_blank" rel="noreferrer" className="btn-primary-hover"
+              style={{ padding: "12px 20px", borderRadius: 999, border: "none", background: C.dark, color: C.paper, fontWeight: 500, fontSize: 14, cursor: "pointer", textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 7 }}>
               <ExternalLink size={15} /> Ver site no ar
             </a>
             <a href={`https://wa.me/?text=${encodeURIComponent(`Acabei de criar meu site! Dá uma olhada: ${publishedUrl}`)}`} target="_blank" rel="noreferrer"
-              style={{ padding: "12px 20px", borderRadius: 999, border: `1px solid ${C.line}`, background: "#fff", color: C.ink, fontWeight: 600, fontSize: 14, cursor: "pointer", textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 7 }}>
+              style={{ padding: "12px 20px", borderRadius: 999, border: `1px solid ${C.line}`, background: C.panel, color: C.ink, fontWeight: 500, fontSize: 14, cursor: "pointer", textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 7 }}>
               <MessageCircle size={15} /> Compartilhar
             </a>
           </div>
 
-          <button onClick={() => setPhase("site")}
-            style={{ marginTop: 28, padding: 0, border: "none", background: "none", color: C.sub, fontSize: 13.5, cursor: "pointer", textDecoration: "underline" }}>
+          <button onClick={() => setPhase("site")} className="link-hover"
+            style={{ marginTop: 28, padding: 0, border: "none", background: "none", color: C.sub, fontSize: 13.5, cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 3 }}>
             Continuar editando o site
           </button>
         </div>
@@ -1773,8 +1827,9 @@ export default function App() {
         .hero-grid { display:grid; grid-template-columns: 1.1fr .9fr; }
         .sobre-grid { display:grid; grid-template-columns: 1fr 1fr; }
         .spec-grid { display:grid; grid-template-columns: 1fr 1fr; }
+        .spec-destaque-grid { grid-template-columns: 1.1fr .9fr; }
         @media (max-width: 640px) {
-          .hero-grid, .sobre-grid, .spec-grid { grid-template-columns: 1fr !important; }
+          .hero-grid, .sobre-grid, .spec-grid, .spec-destaque-grid { grid-template-columns: 1fr !important; }
           .hero-grid > div:last-child, .sobre-grid > div:last-child { max-width: 220px; margin: 20px auto 0; }
           .site-nav { display: none !important; }
         }
@@ -1806,48 +1861,47 @@ export default function App() {
               {publishedUrl && (
                 <>
                   <a href={publishedUrl} target="_blank" rel="noreferrer"
-                    style={{ padding: "11px 18px", borderRadius: 999, border: `1px solid ${C.line}`, background: "#fff", color: C.ink, fontWeight: 600, fontSize: 13.5, cursor: "pointer", whiteSpace: "nowrap", textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 7 }}>
+                    style={{ padding: "11px 18px", borderRadius: 999, border: `1px solid ${C.line}`, background: C.panel, color: C.ink, fontWeight: 500, fontSize: 13.5, cursor: "pointer", whiteSpace: "nowrap", textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 7 }}>
                     <ExternalLink size={14} /> Ver site
                   </a>
                   <button onClick={() => navigator.clipboard?.writeText(publishedUrl)} aria-label="Copiar link" title="Copiar link"
-                    style={{ width: 42, height: 42, flexShrink: 0, borderRadius: 999, border: `1px solid ${C.line}`, background: "#fff", color: C.sub, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    style={{ width: 42, height: 42, flexShrink: 0, borderRadius: 999, border: `1px solid ${C.line}`, background: C.panel, color: C.sub, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
                     <Copy size={15} />
                   </button>
                 </>
               )}
               <button onClick={toggleEditMode}
-                style={{ padding: "11px 18px", borderRadius: 999, cursor: "pointer", fontWeight: 600, fontSize: 13.5, whiteSpace: "nowrap", display: "inline-flex", alignItems: "center", gap: 7,
+                style={{ padding: "11px 18px", borderRadius: 999, cursor: "pointer", fontWeight: 500, fontSize: 13.5, whiteSpace: "nowrap", display: "inline-flex", alignItems: "center", gap: 7,
                   border: editMode ? "none" : `1px solid ${C.line}`,
-                  background: editMode ? C.sage : "#fff",
-                  color: editMode ? "#fff" : C.ink }}>
+                  background: editMode ? C.sage : C.panel,
+                  color: editMode ? C.paper : C.ink }}>
                 <Pencil size={14} /> {editMode ? "Concluir edição" : "Editar"}
               </button>
               <button onClick={restartQuiz}
-                style={{ padding: "11px 18px", borderRadius: 999, border: `1px solid ${C.line}`, background: "#fff", color: C.ink, fontWeight: 600, fontSize: 13.5, cursor: "pointer", whiteSpace: "nowrap" }}>
+                style={{ padding: "11px 18px", borderRadius: 999, border: `1px solid ${C.line}`, background: C.panel, color: C.ink, fontWeight: 500, fontSize: 13.5, cursor: "pointer", whiteSpace: "nowrap" }}>
                 Recomeçar
               </button>
-              <button onClick={publishSite} disabled={publishing}
-                style={{ padding: "11px 20px", borderRadius: 999, border: "none", background: C.dark, color: "#fff", fontWeight: 600, fontSize: 13.5, cursor: publishing ? "default" : "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 7, whiteSpace: "nowrap" }}>
+              <button onClick={publishSite} disabled={publishing} className="btn-primary-hover"
+                style={{ padding: "11px 20px", borderRadius: 999, border: "none", background: C.dark, color: C.paper, fontWeight: 500, fontSize: 13.5, cursor: publishing ? "default" : "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 7, whiteSpace: "nowrap" }}>
                 <Check size={16} /> {publishing ? "Publicando..." : siteStatus === "published" ? "Atualizar site" : "Publicar site"}
               </button>
             </div>
             {renderAccountMenu()}
           </div>
         </div>
-        {showPlanPicker && renderPlanPicker()}
         {authError && (
-          <div className="fade" style={{ marginBottom: 12, fontSize: 13, color: "#B3453A" }}>{authError}</div>
+          <div className="fade" style={{ marginBottom: 12, fontSize: 13, color: C.danger }}>{authError}</div>
         )}
         <div className="fade" style={{ marginBottom: 16, display: "flex", justifyContent: "flex-end" }}>
-          <div style={{ display: "flex", gap: 3, padding: 3, borderRadius: 11, background: C.panel, border: `1px solid ${C.line}` }}>
+          <div style={{ display: "flex", gap: 3, padding: 3, borderRadius: 12, background: C.panel, border: `1px solid ${C.line}` }}>
             {Object.entries(PREVIEW_DEVICES).map(([key, { label, icon: Icon }]) => (
               <button key={key} onClick={() => setPreviewDevice(key)} aria-label={label} title={label}
                 style={{
                   width: 36, height: 32, borderRadius: 8, border: "none", cursor: "pointer",
                   display: "flex", alignItems: "center", justifyContent: "center",
-                  background: previewDevice === key ? "#fff" : "transparent",
-                  color: previewDevice === key ? C.ink : C.sub,
-                  boxShadow: previewDevice === key ? "0 1px 4px rgba(0,0,0,.12)" : "none",
+                  background: previewDevice === key ? C.sageSoft : "transparent",
+                  color: previewDevice === key ? C.sage : C.sub,
+                  transition: "background .16s,color .16s",
                 }}>
                 <Icon size={16} />
               </button>
@@ -1864,11 +1918,11 @@ export default function App() {
                 if (!reg) return null;
                 return (
                   <div>
-                    <button onClick={() => setSelectedField(null)}
+                    <button onClick={() => setSelectedField(null)} className="link-hover"
                       style={{ display: "inline-flex", alignItems: "center", gap: 5, background: "none", border: "none", padding: 0, marginBottom: 12, color: C.sub, fontSize: 12.5, fontWeight: 600, cursor: "pointer" }}>
                       <ArrowRight size={13} style={{ transform: "rotate(180deg)" }} /> Voltar
                     </button>
-                    <div style={{ fontSize: 12, color: C.sub, fontWeight: 600, marginBottom: 8, textTransform: "uppercase", letterSpacing: ".04em" }}>{reg.label}</div>
+                    <div style={{ fontSize: 12, color: C.clay, fontWeight: 600, marginBottom: 8, textTransform: "uppercase", letterSpacing: ".08em" }}>{reg.label}</div>
                     {reg.type === "text" && (
                       <input value={site?.[base] || ""} onChange={(e) => editField(base, e.target.value)} placeholder={reg.ph} style={edInput(C)} />
                     )}
@@ -1880,16 +1934,16 @@ export default function App() {
                     )}
                     {reg.type === "image" && (
                       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                        {site?.[base] && <img src={site[base]} alt="" style={{ width: "100%", borderRadius: 10, border: `1px solid ${C.line}` }} />}
+                        {site?.[base] && <img src={site[base]} alt="" style={{ width: "100%", borderRadius: 12, border: `1px solid ${C.line}` }} />}
                         <input type="file" accept="image/*" ref={editFileRef} style={{ display: "none" }} onChange={editImageFile} />
                         <button onClick={() => editFileRef.current?.click()}
-                          style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 7, padding: "10px 14px", borderRadius: 10, border: `1px solid ${C.sage}`, background: C.sageSoft, color: C.sage, fontWeight: 600, fontSize: 13, cursor: "pointer" }}>
+                          style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 7, padding: "10px 14px", borderRadius: 999, border: `1px solid ${C.sage}`, background: C.sageSoft, color: C.sage, fontWeight: 500, fontSize: 13, cursor: "pointer" }}>
                           <ImageIcon size={15} /> {site?.[base] ? "Trocar imagem" : "Escolher imagem"}
                         </button>
                         <input value={/^data:/.test(site?.[base] || "") ? "" : (site?.[base] || "")} onChange={(e) => editField(base, e.target.value)} placeholder="ou cole o link de uma imagem" style={edInput(C)} />
                         {site?.[base] && (
                           <button onClick={() => editField(base, "")}
-                            style={{ padding: "8px 14px", borderRadius: 10, border: `1px solid ${C.line}`, background: "#fff", color: C.sub, fontWeight: 600, fontSize: 12.5, cursor: "pointer" }}>
+                            style={{ padding: "8px 14px", borderRadius: 999, border: `1px solid ${C.line}`, background: C.panel, color: C.sub, fontWeight: 500, fontSize: 12.5, cursor: "pointer" }}>
                             Remover
                           </button>
                         )}
@@ -1902,20 +1956,20 @@ export default function App() {
               /* --- sem seleção: Tema + Paleta (+ dica em editMode) --- */
               <>
                 {editMode && (
-                  <div style={{ padding: "10px 12px", borderRadius: 10, background: C.sageSoft, border: `1px solid ${C.line}`, fontSize: 12.5, color: C.sage, fontWeight: 600, lineHeight: 1.4 }}>
+                  <div style={{ padding: "10px 12px", borderRadius: 12, background: C.sageSoft, border: `1px solid ${C.line}`, fontSize: 12.5, color: C.sage, fontWeight: 600, lineHeight: 1.4 }}>
                     Clique num elemento do site pra editá-lo.
                   </div>
                 )}
                 <div>
-                  <div style={{ fontSize: 12, color: C.sub, fontWeight: 600, marginBottom: 8, textTransform: "uppercase", letterSpacing: ".04em" }}>Tema</div>
+                  <div style={{ fontSize: 12, color: C.clay, fontWeight: 600, marginBottom: 8, textTransform: "uppercase", letterSpacing: ".08em" }}>Tema</div>
                   <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                     {Object.entries(THEMES).map(([key, label]) => (
                       <button key={key} onClick={() => changeTheme(key)}
                         style={{
-                          padding: "9px 13px", borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: "pointer", textAlign: "left",
-                          border: `1px solid ${(site?.theme || "classic") === key ? C.dark : C.line}`,
-                          background: (site?.theme || "classic") === key ? C.dark : "#fff",
-                          color: (site?.theme || "classic") === key ? "#fff" : C.ink,
+                          padding: "9px 13px", borderRadius: 10, fontSize: 13, fontWeight: 500, cursor: "pointer", textAlign: "left", transition: "border-color .16s,background .16s",
+                          border: `1px solid ${(site?.theme || "classic") === key ? C.sage : C.line}`,
+                          background: (site?.theme || "classic") === key ? C.sageSoft : C.panel,
+                          color: C.ink,
                         }}>
                         {label}
                       </button>
@@ -1923,17 +1977,17 @@ export default function App() {
                   </div>
                 </div>
                 <div>
-                  <div style={{ fontSize: 12, color: C.sub, fontWeight: 600, marginBottom: 8, textTransform: "uppercase", letterSpacing: ".04em" }}>Paleta</div>
+                  <div style={{ fontSize: 12, color: C.clay, fontWeight: 600, marginBottom: 8, textTransform: "uppercase", letterSpacing: ".08em" }}>Paleta</div>
                   <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                     {Object.keys(COLOR_SCHEMES).map((label) => {
                       const on = (site?.colorScheme || DEFAULT_COLOR_SCHEME) === label;
                       return (
                         <button key={label} onClick={() => changeColorScheme(label)}
                           style={{
-                            display: "flex", alignItems: "center", gap: 8, padding: "9px 13px", borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: "pointer", textAlign: "left",
-                            border: `1px solid ${on ? C.dark : C.line}`,
-                            background: on ? C.dark : "#fff",
-                            color: on ? "#fff" : C.ink,
+                            display: "flex", alignItems: "center", gap: 8, padding: "9px 13px", borderRadius: 10, fontSize: 13, fontWeight: 500, cursor: "pointer", textAlign: "left", transition: "border-color .16s,background .16s",
+                            border: `1px solid ${on ? C.sage : C.line}`,
+                            background: on ? C.sageSoft : C.panel,
+                            color: C.ink,
                           }}>
                           <span style={{ width: 14, height: 14, borderRadius: 999, background: COLOR_SCHEMES[label].accent, flexShrink: 0 }} />
                           {label}
@@ -1947,8 +2001,8 @@ export default function App() {
           </div>
           <div className="fade" style={{
             flex: 1, minWidth: 0, height: "calc(100vh - 150px)",
-            borderRadius: 18, border: `1px solid ${C.line}`, overflow: "hidden",
-            background: previewDevice === "desktop" ? "#fff" : C.paper,
+            borderRadius: 20, border: `1px solid ${C.line}`, overflow: "hidden",
+            background: previewDevice === "desktop" ? C.panel : C.paper,
             boxShadow: "0 24px 60px -36px rgba(0,0,0,.3)",
             display: "flex", justifyContent: "center",
             padding: previewDevice === "desktop" ? 0 : 20,

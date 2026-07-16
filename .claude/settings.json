@@ -1,0 +1,38 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node test-trial.js)",
+      "mcp__claude_ai_Supabase__execute_sql",
+      "Bash(rm -f /private/tmp/claude-501/-Users-igorpinheiro-quiz-lp/a3321bb6-33c2-4d1d-9f49-b696fdc61ed4/scratchpad/*.png)",
+      "Bash(which chromium *)",
+      "Read(//Applications/**)",
+      "Bash(\"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome\" --headless --disable-gpu --screenshot=/private/tmp/claude-501/-Users-igorpinheiro-quiz-lp/b7b6ce15-c282-4736-ac15-25acc653d2c2/scratchpad/trial-screen.png --window-size=520,1000 \"http://localhost:5173/__preview-trial\")",
+      "Bash(\"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome\" --headless --disable-gpu --screenshot=/private/tmp/claude-501/-Users-igorpinheiro-quiz-lp/b7b6ce15-c282-4736-ac15-25acc653d2c2/scratchpad/trial-screen-mobile-2.png --window-size=375,950 \"http://localhost:5173/__preview-trial\")",
+      "Bash(\"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome\" --headless --disable-gpu --screenshot=/private/tmp/claude-501/-Users-igorpinheiro-quiz-lp/b7b6ce15-c282-4736-ac15-25acc653d2c2/scratchpad/published-mobile.png --window-size=375,950 \"http://localhost:5173/__preview-success\")",
+      "Bash(xargs -I{} echo {})",
+      "Bash(node .tmp-shot2.mjs 390 844 /private/tmp/claude-501/-Users-igorpinheiro-quiz-lp/a00302c9-ff8e-4669-b9ba-160f1fbd3147/scratchpad/before-mobile)",
+      "Bash(git status *)",
+      "Bash(vercel dev *)",
+      "Bash(tee /private/tmp/claude-501/-Users-igorpinheiro-quiz-lp/afcce2d7-a234-4f7c-b8be-a0274db8d2a8/scratchpad/vercel-dev.log)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:3000/)",
+      "Bash(vercel whoami *)",
+      "Bash(nohup vercel dev --listen 3000 --yes)",
+      "Bash(echo \"started pid $!\")",
+      "Bash(vercel env *)",
+      "Bash(lsof -i :3000 -sTCP:LISTEN)",
+      "Bash(curl -s -o /dev/null -w \"status=%{http_code} time=%{time_total}s\\\\n\" http://localhost:3000/ --max-time 5)",
+      "Bash(curl -s -o /dev/null -w \"status=%{http_code} time=%{time_total}s\\\\n\" http://127.0.0.1:3000/ --max-time 5)",
+      "Bash(pkill -9 -f \"dev-server.mjs\")",
+      "Bash(pkill -9 -f \"esbuild\")",
+      "Bash(curl -s -X POST http://localhost:3001/api/generate-copy -H \"Content-Type: application/json\" -d '{\"name\":\"x\",\"especialidade\":[\"Ansiedade\",\"Luto\"],\"abordagem\":\"Gestalt\",\"tom\":\"Direto\"}' --max-time 10)",
+      "Bash(open http://localhost:5173)",
+      "Bash(node capture-theme-previews.js)",
+      "Bash(npm ls *)",
+      "Bash(rm -rf /private/tmp/claude-501/-Users-igorpinheiro-quiz-lp/472f5606-e09c-4750-9e67-9bd58e240c90/scratchpad/*.png /private/tmp/claude-501/-Users-igorpinheiro-quiz-lp/472f5606-e09c-4750-9e67-9bd58e240c90/scratchpad/*.js *)"
+    ],
+    "additionalDirectories": [
+      "/private/tmp/claude-501/-Users-igorpinheiro-quiz-lp/a3321bb6-33c2-4d1d-9f49-b696fdc61ed4/scratchpad",
+      "/private/tmp/claude-501/-Users-igorpinheiro-quiz-lp/472f5606-e09c-4750-9e67-9bd58e240c90/scratchpad"
+    ]
+  }
+}

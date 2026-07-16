@@ -11,9 +11,20 @@
     <meta property="og:description" content="Responda um quiz e tenha o site da sua clínica de psicologia pronto em poucos minutos." />
     <meta property="og:image" content="/api/og" />
     <meta name="twitter:card" content="summary_large_image" />
+    <!-- Microsoft Clarity — analytics/gravação de sessão do MVP (temporário, ver todo o fluxo incl. páginas criadas). Remover/ajustar depois. -->
+    <script type="text/javascript">
+      (function(c,l,a,r,i,t,y){
+          c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
+          t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
+          y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
+      })(window, document, "clarity", "script", "xmbcvcn6uo");
+    </script>
   </head>
   <body>
-    <div id="root"></div>
+    <!-- data-clarity-unmask: força o Clarity a NÃO mascarar o conteúdo/inputs do app
+         (queremos ver o que as testadoras digitam). Temporário, junto do Clarity —
+         remover/rever antes de abrir pra público geral (privacidade). -->
+    <div id="root" data-clarity-unmask="true"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
